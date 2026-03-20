@@ -1,9 +1,9 @@
 name: Fetch Golf Scores
 
 on:
-  # Run every 5 minutes during tournament hours (Thu-Sun, 7am-9pm ET)
+  # Run every 5 minutes, all day (GitHub will skip if no tournament ID set)
   schedule:
-    - cron: '*/5 11-01 * * 4-0'   # Thu-Sun UTC (covers 7am-9pm ET)
+    - cron: '*/5 * * * *'   # Thu-Sun UTC (covers 7am-9pm ET)
   # Also allow manual trigger from GitHub UI
   workflow_dispatch:
     inputs:
@@ -261,3 +261,4 @@ jobs:
             git commit -m "Update golf scores $(date -u +'%Y-%m-%d %H:%M UTC')"
             git push
           fi
+
