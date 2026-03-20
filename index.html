@@ -429,19 +429,25 @@ input,textarea,select{font-family:'Inter',sans-serif}
         <div class="phead"><h3>Live Scoring Setup</h3><button class="pclose" onclick="closePanel('live')">&#10005;</button></div>
         <div class="pbody">
           <div class="snote">
-            <strong style="color:var(--bg);display:block;margin-bottom:8px">&#128640; GitHub Actions — Free, No API Key</strong>
-            This site uses GitHub Actions to automatically fetch scores every 5 minutes and save them to a <code>scores.json</code> file in your repo. No serverless functions, no paid APIs.<br><br>
-            <strong>One-time setup (2 minutes):</strong><br>
-            1. Your repo is already on GitHub Pages<br>
-            2. Before each tournament, update <code>tournament-id.txt</code> in your repo with the ESPN tournament ID<br>
-            3. The workflow runs automatically Thu–Sun during tournament hours<br><br>
-            <strong>To find the ESPN tournament ID:</strong> Go to espn.com/golf/leaderboard, navigate to your tournament — the number at the end of the URL is the ID.<br>
+            <strong style="color:var(--bg);display:block;margin-bottom:8px">&#128640; Cloudflare Worker — Free, Reliable, Every 5 Minutes</strong>
+            Your Cloudflare Worker fetches ESPN scores on a precise cron schedule and caches them. This site reads directly from your Worker URL — no GitHub Actions needed.<br><br>
+            <strong>How it works:</strong><br>
+            1. Deploy the Worker script to Cloudflare (free tier = 100k requests/day)<br>
+            2. Paste your Worker URL below<br>
+            3. Toggle scoring on/off by hitting <code>your-worker-url/toggle/on</code> or <code>/toggle/off</code><br>
+            4. The Worker cron runs every 5 min — when off, it skips and costs nothing<br><br>
+            <strong>To find the ESPN tournament ID:</strong> Go to espn.com/golf/leaderboard — the number at the end of the URL is the ID.<br>
             <em style="color:var(--txl);font-size:12px">Example: espn.com/golf/leaderboard/_/tournamentId/<strong>401811938</strong></em>
           </div>
           <div class="fgrp">
-            <label class="flbl">Current ESPN Tournament ID</label>
+            <label class="flbl">Cloudflare Worker URL</label>
+            <input type="text" class="finp" id="workerUrl" placeholder="e.g. https://golf-scores.your-name.workers.dev">
+            <div style="font-size:11px;color:var(--txl);margin-top:5px">Your Worker URL. Scores are fetched from <code>/scores</code> endpoint.</div>
+          </div>
+          <div class="fgrp">
+            <label class="flbl">ESPN Tournament ID</label>
             <input type="text" class="finp" id="espnTournId" placeholder="e.g. 401811938">
-            <div style="font-size:11px;color:var(--txl);margin-top:5px">Paste the number from the ESPN URL. This gets saved to your repo as <code>tournament-id.txt</code>.</div>
+            <div style="font-size:11px;color:var(--txl);margin-top:5px">Set this in your Worker via <code>/tournament/401811938</code></div>
           </div>
           <div class="fgrp">
             <label class="flbl">Display Refresh (how often the page checks for new scores)</label>
@@ -454,6 +460,11 @@ input,textarea,select{font-family:'Inter',sans-serif}
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
             <button class="btnp" onclick="saveLiveCfg()">Save <span class="arr">&#8594;</span></button>
             <button class="btns" onclick="testEspnConnection()">Test &amp; Preview</button>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+            <button class="btns" style="font-size:12px" onclick="toggleWorker('on')">&#9989; Turn Scoring ON</button>
+            <button class="btns" style="font-size:12px" onclick="toggleWorker('off')">&#9940; Turn Scoring OFF</button>
+            <button class="btns" style="font-size:12px" onclick="checkWorkerStatus()">&#128260; Check Status</button>
           </div>
           <div id="testResult" style="margin-top:16px"></div>
         </div>
@@ -803,7 +814,7 @@ function renderHome(){
   var colspan=9;
 
   if(!t.golfers.length){
-    document.getElementById('golfTbody').innerHTML='<tr><td colspan="'+colspan+'"><div class="empty"><div class="ei">&#127947;</div><p>No scores yet. Run the GitHub Action to fetch live scores.</p></div></td></tr>';
+    document.getElementById('golfTbody').innerHTML='<tr><td colspan="'+colspan+'"><div class="empty"><div class="ei">&#127947;</div><p>No scores yet. Check Worker status in Admin &rarr; Live Scoring Config.</p></div></td></tr>';
     document.getElementById('golfThead').innerHTML=thead;
   } else {
     document.getElementById('golfThead').innerHTML=thead;
@@ -1020,19 +1031,34 @@ function renderHist(){
 }
 
 // ============================================================
-// LIVE SCORING — reads /scores.json updated by GitHub Actions
+// LIVE SCORING — reads from Cloudflare Worker (primary) or local scores.json (fallback)
 // ============================================================
 
 var rfTimer = null;
 
 async function fetchLiveScores() {
+  // Try Cloudflare Worker first, fall back to local scores.json
+  var t = getActive();
+  var workerUrl = (t && t.liveConfig && t.liveConfig.workerUrl) ? t.liveConfig.workerUrl.replace(/\/+$/, '') : '';
+  if (workerUrl) {
+    try {
+      var res = await fetch(workerUrl + '/scores?t=' + Date.now());
+      if (res.ok) {
+        var data = await res.json();
+        if (data && data.golfers && data.golfers.length > 0) return data;
+      }
+    } catch(err) {
+      console.warn('Worker fetch error:', err.message);
+    }
+  }
+  // Fallback: local scores.json
   try {
     var base = window.location.pathname.replace(/\/[^/]*$/, '/');
-    var res = await fetch(base + 'scores.json?t=' + Date.now());
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    var data = await res.json();
-    if (data.error && !data.golfers.length) throw new Error(data.error);
-    return data;
+    var res2 = await fetch(base + 'scores.json?t=' + Date.now());
+    if (!res2.ok) throw new Error('HTTP ' + res2.status);
+    var data2 = await res2.json();
+    if (data2.error && !data2.golfers.length) throw new Error(data2.error);
+    return data2;
   } catch(err) {
     console.warn('scores.json error:', err.message);
     return null;
@@ -1062,7 +1088,7 @@ async function triggerRefresh(silent) {
     }
     if(!silent) toast('Scores updated!', '\u26f3');
   } else {
-    if(!silent) toast('No scores yet \u2014 check GitHub Actions in your repo', '\u26a0\ufe0f');
+    if(!silent) toast('No scores yet \u2014 check Worker status in Admin', '\u26a0\ufe0f');
   }
   document.getElementById('liveStatus').textContent = 'Live';
   var upd = getDB().liveLastUpdated;
@@ -1070,22 +1096,6 @@ async function triggerRefresh(silent) {
   renderHome();
 }
 
-async function testEspnConnection() {
-  var tidEl = document.getElementById('espnTournId');
-  var resultEl = document.getElementById('testResult');
-  if (!resultEl) return;
-  resultEl.innerHTML = '<div class="snote">\u231b Checking scores.json&hellip;</div>';
-  var data = await fetchLiveScores();
-  if (data && data.golfers && data.golfers.length > 0) {
-    showLeaderboardPreview(data, resultEl); return;
-  }
-  var tid = tidEl ? tidEl.value.trim() : '';
-  if (!tid) {
-    resultEl.innerHTML = '<div class="snote" style="color:var(--red)">&#10005; No scores.json found yet. Enter your ESPN tournament ID above and save, then trigger the GitHub Action.</div>';
-    return;
-  }
-  resultEl.innerHTML = '<div class="snote"><strong>\u2705 Tournament ID saved: ' + tid + '</strong><br><br>The GitHub Action runs automatically every 5 min and writes scores.json to your repo. You can also run it manually from GitHub \u2192 Actions tab.</div>';
-}
 
 function showLeaderboardPreview(data, resultEl) {
   var golfers = data.golfers || [];
@@ -1122,8 +1132,10 @@ function startAutoRf() {
 function renderLiveCfg() {
   var t = getActive(); if (!t) return;
   var cfg = t.liveConfig || {};
+  var wu = document.getElementById('workerUrl');
   var ti = document.getElementById('espnTournId');
   var ai = document.getElementById('apiInt');
+  if (wu) wu.value = cfg.workerUrl || '';
   if (ti) ti.value = cfg.tournamentId || '';
   if (ai) ai.value = cfg.interval || 5;
 }
@@ -1132,23 +1144,56 @@ function saveLiveCfg() {
   var db = getDB();
   var t = db.tournaments.find(function(t){ return t.status === 'active'; });
   if (!t) { toast('No active tournament', '\u26a0\ufe0f'); return; }
+  var wuEl  = document.getElementById('workerUrl');
   var tidEl = document.getElementById('espnTournId');
   var aiEl  = document.getElementById('apiInt');
   t.liveConfig = {
+    workerUrl: wuEl ? wuEl.value.trim() : '',
     tournamentId: tidEl ? tidEl.value.trim() : '',
     interval: parseInt(aiEl ? aiEl.value : 5) || 5
   };
   saveDB(db); startAutoRf();
   toast('Live scoring config saved!');
-  testEspnConnection();
 }
 
-function parseEspnUrl(input) {
-  if (!input) return null;
-  var m = String(input).trim().match(/tournamentId[\/=](\d+)/i);
-  if (m) return m[1];
-  if (/^\d+$/.test(String(input).trim())) return String(input).trim();
-  return null;
+async function toggleWorker(state) {
+  var t = getActive();
+  var workerUrl = (t && t.liveConfig && t.liveConfig.workerUrl) ? t.liveConfig.workerUrl.replace(/\/+$/, '') : '';
+  if (!workerUrl) { toast('Set your Worker URL first', '\u26a0\ufe0f'); return; }
+  var resultEl = document.getElementById('testResult');
+  try {
+    var res = await fetch(workerUrl + '/toggle/' + state);
+    var data = await res.json();
+    if (resultEl) resultEl.innerHTML = '<div class="snote" style="color:' + (state==='on'?'#1a6e3a':'var(--red)') + '"><strong>' + (state==='on'?'\u2705 Scoring is ON':'&#9940; Scoring is OFF') + '</strong> — ' + (data.message || JSON.stringify(data)) + '</div>';
+    toast('Scoring toggled ' + state + '!');
+  } catch(err) {
+    if (resultEl) resultEl.innerHTML = '<div class="snote" style="color:var(--red)">&#10005; Could not reach Worker: ' + err.message + '</div>';
+  }
+}
+
+async function checkWorkerStatus() {
+  var t = getActive();
+  var workerUrl = (t && t.liveConfig && t.liveConfig.workerUrl) ? t.liveConfig.workerUrl.replace(/\/+$/, '') : '';
+  if (!workerUrl) { toast('Set your Worker URL first', '\u26a0\ufe0f'); return; }
+  var resultEl = document.getElementById('testResult');
+  try {
+    var res = await fetch(workerUrl + '/status');
+    var data = await res.json();
+    if (resultEl) resultEl.innerHTML = '<div class="snote"><strong>\u2139\ufe0f Worker Status</strong><br>Scoring: <strong>' + (data.enabled ? 'ON' : 'OFF') + '</strong><br>Tournament ID: <strong>' + (data.tournamentId || 'not set') + '</strong><br>Last updated: <strong>' + (data.lastUpdated || 'never') + '</strong><br>Golfers cached: <strong>' + (data.golferCount || 0) + '</strong></div>';
+  } catch(err) {
+    if (resultEl) resultEl.innerHTML = '<div class="snote" style="color:var(--red)">&#10005; Could not reach Worker: ' + err.message + '</div>';
+  }
+}
+
+async function testEspnConnection() {
+  var resultEl = document.getElementById('testResult');
+  if (!resultEl) return;
+  resultEl.innerHTML = '<div class="snote">\u231b Fetching scores&hellip;</div>';
+  var data = await fetchLiveScores();
+  if (data && data.golfers && data.golfers.length > 0) {
+    showLeaderboardPreview(data, resultEl); return;
+  }
+  resultEl.innerHTML = '<div class="snote" style="color:var(--red)">&#10005; No scores found. Check that your Worker is deployed, scoring is toggled ON, and the tournament ID is set.</div>';
 }
 
 // ADMIN
