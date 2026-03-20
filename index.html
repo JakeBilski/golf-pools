@@ -1035,11 +1035,16 @@ function renderHist(){
 // ============================================================
 
 var rfTimer = null;
+var WORKER_URL = 'https://golf-scores.bilskijake.workers.dev';
 
 async function fetchLiveScores() {
   // Try Cloudflare Worker first, fall back to local scores.json
+  var workerUrl = WORKER_URL;
+  // Also check admin override if set
   var t = getActive();
-  var workerUrl = (t && t.liveConfig && t.liveConfig.workerUrl) ? t.liveConfig.workerUrl.replace(/\/+$/, '') : '';
+  if (t && t.liveConfig && t.liveConfig.workerUrl) {
+    workerUrl = t.liveConfig.workerUrl.replace(/\/+$/, '');
+  }
   if (workerUrl) {
     try {
       var res = await fetch(workerUrl + '/scores?t=' + Date.now());
@@ -1158,7 +1163,8 @@ function saveLiveCfg() {
 
 async function toggleWorker(state) {
   var t = getActive();
-  var workerUrl = (t && t.liveConfig && t.liveConfig.workerUrl) ? t.liveConfig.workerUrl.replace(/\/+$/, '') : '';
+  var workerUrl = WORKER_URL;
+  if (t && t.liveConfig && t.liveConfig.workerUrl) workerUrl = t.liveConfig.workerUrl.replace(/\/+$/, '');
   if (!workerUrl) { toast('Set your Worker URL first', '\u26a0\ufe0f'); return; }
   var resultEl = document.getElementById('testResult');
   try {
@@ -1173,7 +1179,8 @@ async function toggleWorker(state) {
 
 async function checkWorkerStatus() {
   var t = getActive();
-  var workerUrl = (t && t.liveConfig && t.liveConfig.workerUrl) ? t.liveConfig.workerUrl.replace(/\/+$/, '') : '';
+  var workerUrl = WORKER_URL;
+  if (t && t.liveConfig && t.liveConfig.workerUrl) workerUrl = t.liveConfig.workerUrl.replace(/\/+$/, '');
   if (!workerUrl) { toast('Set your Worker URL first', '\u26a0\ufe0f'); return; }
   var resultEl = document.getElementById('testResult');
   try {
@@ -1372,4 +1379,3 @@ checkEditToken();
 </script>
 </body>
 </html>
-
