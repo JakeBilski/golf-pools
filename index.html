@@ -287,7 +287,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
       <div class="cardhead"><h3>Tournament Leaderboard</h3><span class="livedot">Scores</span></div>
       <div class="tbwrap">
         <table class="tbl">
-          <thead id="golfThead"><tr><th>Pos</th><th>Player</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>In Pool</th></tr></thead>
+          <thead id="golfThead"><tr><th>Pos</th><th>Player</th><th>Score</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr></thead>
           <tbody id="golfTbody"></tbody>
         </table>
       </div>
@@ -642,6 +642,7 @@ function dlPassed(t){if(!t)return true;if(!t.deadline||t.deadline==='')return fa
 function fmtD(d){if(!d)return '';return new Date(d+'T12:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});}
 function fmtS(s){
   if(s==='MC'||s===20)return '<span class="smc">MC</span>';
+  if(s==='E'||s===0)return '<span class="se">E</span>';
   var n=typeof s==='string'?parseInt(s):s;
   if(isNaN(n)||s===''||s===null||s===undefined)return '<span style="color:#ccc">&#8212;</span>';
   if(n<0)return '<span class="su">'+n+'</span>';
@@ -650,6 +651,7 @@ function fmtS(s){
 }
 function fmtSR(s){
   if(s==='MC'||s===20)return 'MC';
+  if(s==='E'||s===0)return 'E';
   var n=typeof s==='string'?parseInt(s):s;
   if(isNaN(n)||s===''||s===null||s===undefined)return '&#8212;';
   if(n<0)return String(n);
@@ -755,34 +757,38 @@ function renderHome(){
   }
 
   // ── Tournament leaderboard ──
+  // Thru column: shows tee time before round starts, holes played during/after
   var hasScores=t.golfers.length>0&&t.golfers.some(function(g){return g.score!==null&&g.score!==undefined;});
-  var showTeeTimes=t.golfers.length>0&&!hasScores;
+  var thead='<tr><th>Pos</th><th>Player</th><th>Score</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr>';
+  var colspan=9;
 
   if(!t.golfers.length){
-    document.getElementById('golfTbody').innerHTML='<tr><td colspan="9"><div class="empty"><div class="ei">&#127947;</div><p>No scores yet. Run the GitHub Action to fetch live scores.</p></div></td></tr>';
-    document.getElementById('golfThead').innerHTML='<tr><th>Pos</th><th>Player</th><th>Tee Time</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr>';
-  } else if(showTeeTimes){
-    document.getElementById('golfThead').innerHTML='<tr><th>#</th><th>Player</th><th>Tee Time</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr>';
-    var h2='';
-    t.golfers.forEach(function(g,i){
-      var rp=rosterPct(g.name);
-      var nm='<span class="glink" onclick="openGolferModal(\'' + g.name.replace(/'/g,"\\'") + '\')">'+g.name+'</span>';
-      h2+='<tr><td style="color:var(--txl)">'+(i+1)+'</td><td>'+nm+'</td><td style="font-family:monospace;font-weight:600">'+(g.thru||'TBD')+'</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>'+rp+'</td></tr>';
-    });
-    document.getElementById('golfTbody').innerHTML=h2;
+    document.getElementById('golfTbody').innerHTML='<tr><td colspan="'+colspan+'"><div class="empty"><div class="ei">&#127947;</div><p>No scores yet. Run the GitHub Action to fetch live scores.</p></div></td></tr>';
+    document.getElementById('golfThead').innerHTML=thead;
   } else {
-    document.getElementById('golfThead').innerHTML='<tr><th>Pos</th><th>Player</th><th>Tee Time</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr>';
+    document.getElementById('golfThead').innerHTML=thead;
     var h='',cd=false;
-    t.golfers.forEach(function(g){
-      if(!cd&&g.pos==='MC'){h+='<tr class="cutrow"><td colspan="11" style="padding:6px 16px"><span class="cutlbl">&#9986; Cut Line</span></td></tr>';cd=true;}
+    t.golfers.forEach(function(g,i){
+      if(!cd&&g.pos==='MC'){h+='<tr class="cutrow"><td colspan="'+colspan+'" style="padding:6px 16px"><span class="cutlbl">&#9986; Cut Line</span></td></tr>';cd=true;}
       var rp=rosterPct(g.name);
       var gr1=g.r&&g.r[0]!==null&&g.r[0]!==''?fmtS(g.r[0]):'&#8212;';
       var gr2=g.r&&g.r[1]!==null&&g.r[1]!==''?fmtS(g.r[1]):'&#8212;';
       var gr3=g.r&&g.r[2]!==null&&g.r[2]!==''?fmtS(g.r[2]):'&#8212;';
       var gr4=g.r&&g.r[3]!==null&&g.r[3]!==''?fmtS(g.r[3]):'&#8212;';
-      var teeTime=g.teeTime?'<span style="font-size:11px;color:var(--txl)">'+g.teeTime+'</span>':'&#8212;';
-      var nm='<span class="glink" onclick="openGolferModal(\'' + g.name.replace(/'/g,"\\'") + '\')">'+g.name+'</span>';
-      h+='<tr><td><strong>'+g.pos+'</strong></td><td>'+nm+'</td><td>'+teeTime+'</td><td>'+fmtS(g.score)+'</td><td>'+fmtS(g.today)+'</td><td style="font-size:12px;color:var(--txl)">'+g.thru+'</td><td>'+gr1+'</td><td>'+gr2+'</td><td>'+gr3+'</td><td>'+gr4+'</td><td>'+rp+'</td></tr>';
+      // Thru: if no score yet show tee time, otherwise show holes played
+      var thruVal=g.thru||'-';
+      var thruDisplay;
+      if(!hasScores||thruVal==='-'||thruVal==='TBD'){
+        // Pre-round or not yet started — show tee time
+        thruDisplay='<span style="font-size:11px;color:var(--txl);font-family:monospace">'+(thruVal==='-'?'&#8212;':thruVal)+'</span>';
+      } else {
+        // In round or finished
+        thruDisplay='<span style="font-size:12px;color:var(--txl)">'+thruVal+'</span>';
+      }
+      var pos=hasScores?'<strong>'+g.pos+'</strong>':'<span style="color:var(--txl)">'+(i+1)+'</span>';
+      var nm='<span class="glink" onclick="openGolferModal(\''+g.name.replace(/'/g,"\\'")+'\')">' + g.name+'</span>';
+      var scoreCell=hasScores?fmtS(g.score):'&#8212;';
+      h+='<tr><td>'+pos+'</td><td>'+nm+'</td><td>'+scoreCell+'</td><td>'+thruDisplay+'</td><td>'+gr1+'</td><td>'+gr2+'</td><td>'+gr3+'</td><td>'+gr4+'</td><td>'+rp+'</td></tr>';
     });
     document.getElementById('golfTbody').innerHTML=h;
   }
