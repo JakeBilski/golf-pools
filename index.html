@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<base href="/golf-pools/">
 <title>Golf Betting Pool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
@@ -1019,7 +1018,7 @@ function showLeaderboardPreview(data, resultEl) {
   var upd = data.lastUpdated ? new Date(data.lastUpdated).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : '?';
   resultEl.innerHTML = '<div style="background:#e8f5ec;border:1px solid rgba(10,61,34,.2);border-radius:12px;overflow:hidden">'
     +'<div style="background:var(--bg);padding:10px 14px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px">'
-    +'<span style="font-family:'Syne',sans-serif;font-weight:800;font-size:14px;color:var(--card)">&#10003; scores.json connected \u2014 '+(data.tournamentName||'Tournament')+'</span>'
+    +'<span style="font-family:Syne,sans-serif;font-weight:800;font-size:14px;color:var(--card)">&#10003; Connected \u2014 '+(data.tournamentName||'Tournament')+'</span>'
     +'<span style="font-size:11px;color:rgba(240,237,204,.6)">'+golfers.length+' golfers \u00b7 '+(data.status||data.round||'')+' \u00b7 '+upd+'</span>'
     +'</div><div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse">'
     +'<thead><tr style="background:#f5f3e0"><th style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--txl);text-align:left">Pos</th><th style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--txl);text-align:left">Player</th><th style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--txl);text-align:left">Score</th><th style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--txl);text-align:left">Today</th><th style="padding:6px 10px;font-size:10px;font-weight:700;text-transform:uppercase;color:var(--txl);text-align:left">Thru</th></tr></thead>'
@@ -1414,41 +1413,6 @@ function saveManual(){
   db.liveLastUpdated=new Date().toISOString();saveDB(db);refreshSite();toast('Scores saved and leaderboard updated!');
 }
 
-function renderLiveCfg(){
-  var t=getActive();if(!t)return;
-  var cfg=t.liveConfig||{};
-  var u=document.getElementById('espnUrl'),i=document.getElementById('apiInt');
-  var parsed=document.getElementById('espnUrlParsed');
-  // Reconstruct the ESPN URL from saved tournamentId, or show what's saved
-  if(u){
-    if(cfg.tournamentId){
-      u.value='https://www.espn.com/golf/leaderboard/_/tournamentId/'+cfg.tournamentId;
-    } else if(cfg.espnUrl){
-      u.value=cfg.espnUrl;
-    } else {
-      u.value='';
-    }
-  }
-  if(i)i.value=cfg.interval||3;
-  if(parsed&&cfg.tournamentId){
-    parsed.textContent='Tournament ID: '+cfg.tournamentId+' (auto-extracted)';
-    parsed.style.color='#1a6e3a';
-  }
-}
-function saveLiveCfg(){
-  var db=getDB(),t=db.tournaments.find(function(t){return t.status==='active';});
-  if(!t){toast('No active tournament','\u26a0\ufe0f');return;}
-  var urlVal=document.getElementById('espnUrl')?document.getElementById('espnUrl').value:'';
-  var tid=parseEspnUrl(urlVal);
-  var parsed=document.getElementById('espnUrlParsed');
-  if(!tid){
-    if(parsed){parsed.textContent='Could not extract tournament ID from that URL.';parsed.style.color='var(--red)';}
-    toast('Paste a valid ESPN leaderboard URL','\u26a0\ufe0f');return;
-  }
-  if(parsed){parsed.textContent='Tournament ID: '+tid+' (auto-extracted)';parsed.style.color='#1a6e3a';}
-  t.liveConfig={tournamentId:tid,espnUrl:urlVal,interval:parseInt(document.getElementById('apiInt')?document.getElementById('apiInt').value:3)||3};
-  saveDB(db);startAutoRf();toast('Live scoring config saved!');
-}
 
 function saveAnn(){
   var db=getDB(),t=db.tournaments.find(function(t){return t.status==='active';});
