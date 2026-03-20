@@ -1,8 +1,14 @@
 name: Fetch Golf Scores
 
 on:
+  # Run every 5 minutes always
   schedule:
     - cron: '*/5 * * * *'
+  # Also run on any push (re-enables if GitHub disabled it)
+  push:
+    paths:
+      - 'tournament-id.txt'
+  # Manual trigger
   workflow_dispatch:
     inputs:
       tournament_id:
