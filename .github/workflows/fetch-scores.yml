@@ -1,0 +1,263 @@
+name: Fetch Golf Scores
+
+on:
+  # Run every 5 minutes during tournament hours (Thu-Sun, 7am-9pm ET)
+  schedule:
+    - cron: '*/5 11-01 * * 4-0'   # Thu-Sun UTC (covers 7am-9pm ET)
+  # Also allow manual trigger from GitHub UI
+  workflow_dispatch:
+    inputs:
+      tournament_id:
+        description: 'ESPN Tournament ID (e.g. 401811938)'
+        required: false
+
+jobs:
+  fetch-scores:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # needed to commit scores.json back to repo
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Fetch scores from ESPN
+        run: |
+          # Read tournament ID from repo config file if it exists
+          if [ -f tournament-id.txt ]; then
+            TOURNAMENT_ID=$(cat tournament-id.txt | tr -d '[:space:]')
+          elif [ -n "${{ github.event.inputs.tournament_id }}" ]; then
+            TOURNAMENT_ID="${{ github.event.inputs.tournament_id }}"
+          else
+            echo '{"error": "No tournament ID configured. Create tournament-id.txt with your ESPN tournament ID.", "golfers": []}' > scores.json
+            exit 0
+          fi
+
+          echo "Fetching scores for tournament: $TOURNAMENT_ID"
+
+          # Try ESPN's internal JSON API (same one their website uses)
+          RESPONSE=$(curl -s \
+            -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36" \
+            -H "Accept: application/json, */*" \
+            -H "Referer: https://www.espn.com/golf/leaderboard" \
+            --max-time 15 \
+            "https://site.api.espn.com/apis/site/v2/sports/golf/pga/scoreboard?event=${TOURNAMENT_ID}")
+
+          # Check if we got valid JSON with actual data
+          if echo "$RESPONSE" | python3 -c "
+          import sys, json
+          try:
+              d = json.load(sys.stdin)
+              events = d.get('events', [])
+              if not events:
+                  sys.exit(1)
+              comps = events[0].get('competitions', [])
+              if not comps or not comps[0].get('competitors', []):
+                  sys.exit(1)
+              print('ESPN JSON API: OK, found', len(comps[0]['competitors']), 'golfers')
+          except Exception as e:
+              print('ESPN JSON API failed:', e, file=sys.stderr)
+              sys.exit(1)
+          " 2>/dev/null; then
+            echo "$RESPONSE" | python3 /dev/stdin << 'PYEOF'
+          import sys, json
+          PYEOF
+            # Parse and transform ESPN response
+            echo "$RESPONSE" | python3 - "$TOURNAMENT_ID" << 'PYEOF'
+          import sys, json
+
+          tournament_id = sys.argv[1]
+          data = json.load(sys.stdin)
+
+          event = data['events'][0]
+          comp = event['competitions'][0]
+          competitors = comp.get('competitors', [])
+
+          status_detail = comp.get('status', {}).get('type', {}).get('detail', '')
+          status_name   = comp.get('status', {}).get('type', {}).get('name', '')
+          tourn_name    = event.get('name', event.get('shortName', ''))
+
+          def parse_par(val):
+              if val is None or val == '' or val == '--': return None
+              s = str(val).strip().upper()
+              if s == 'E': return 0
+              if s in ('MC', 'CUT', 'WD', 'DQ'): return 20
+              try: return int(s.replace('+', ''))
+              except: return None
+
+          def detect_round(status):
+              s = status.lower()
+              if '4' in s or 'final' in s: return 'R4'
+              if '3' in s: return 'R3'
+              if '2' in s: return 'R2'
+              return 'R1'
+
+          golfers = []
+          for c in competitors:
+              athlete = c.get('athlete', {})
+              stats = c.get('statistics', [])
+              linescores = c.get('linescores', [])
+
+              def find_stat(*names):
+                  for name in names:
+                      for s in stats:
+                          if s.get('name') == name or s.get('abbreviation') == name:
+                              return s.get('displayValue', s.get('value'))
+                  return None
+
+              is_cut = c.get('status', '').lower() == 'cut'
+              thru = find_stat('thru', 'holesPlayed', 'THRU') or c.get('status', '-')
+              if thru == '18' or status_name == 'STATUS_FINAL': thru = 'F'
+
+              rounds = []
+              for ls in linescores[:4]:
+                  rounds.append(parse_par(ls.get('displayValue', ls.get('value'))))
+              while len(rounds) < 4:
+                  rounds.append(None)
+
+              name = athlete.get('displayName', athlete.get('shortName', ''))
+              if not name: continue
+
+              golfers.append({
+                  'pos':   'MC' if is_cut else (c.get('position', {}).get('displayName') or str(len(golfers)+1)),
+                  'name':  name,
+                  'flag':  '',
+                  'score': parse_par(find_stat('scoreToPar', 'TOT') or c.get('score')),
+                  'today': parse_par(find_stat('roundScore', 'TODAY', 'RD')),
+                  'thru':  str(thru),
+                  'r':     rounds
+              })
+
+          active = sorted([g for g in golfers if g['pos'] != 'MC'], key=lambda g: (g['score'] or 99))
+          cut    = [g for g in golfers if g['pos'] == 'MC']
+          for i, g in enumerate(active):
+              g['pos'] = i + 1
+
+          result = {
+              'tournamentId':   tournament_id,
+              'tournamentName': tourn_name,
+              'status':         status_detail,
+              'round':          detect_round(status_detail + ' ' + status_name),
+              'lastUpdated':    '__TIMESTAMP__',
+              'golfers':        active + cut
+          }
+          print(json.dumps(result))
+          PYEOF
+          else
+            # ESPN JSON failed — try scraping the HTML page
+            echo "ESPN JSON API returned no data, trying HTML scrape..."
+            HTML=$(curl -s \
+              -H "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" \
+              -H "Accept: text/html,*/*" \
+              -H "Referer: https://www.espn.com/golf/" \
+              --max-time 20 \
+              "https://www.espn.com/golf/leaderboard/_/tournamentId/${TOURNAMENT_ID}")
+
+            # Extract the __espnfitt__ JSON blob from the page
+            echo "$HTML" | python3 - "$TOURNAMENT_ID" << 'PYEOF'
+          import sys, json, re
+
+          tournament_id = sys.argv[1]
+          html = sys.stdin.read()
+
+          # Try to extract embedded JSON data
+          patterns = [
+              r'__espnfitt__\s*=\s*(\{.+?\});\s*</script>',
+              r"window\['__espnfitt__'\]\s*=\s*(\{.+?\});\s*</script>",
+          ]
+
+          data = None
+          for pattern in patterns:
+              m = re.search(pattern, html, re.DOTALL)
+              if m:
+                  try:
+                      data = json.loads(m.group(1))
+                      break
+                  except:
+                      pass
+
+          if not data:
+              print(json.dumps({'error': 'Could not parse ESPN page — tournament may not have started yet', 'golfers': [], 'tournamentId': tournament_id}))
+              sys.exit(0)
+
+          # Navigate to leaderboard
+          page = data.get('page', data.get('content', {}))
+          lb = page.get('content', {}).get('leaderboard') or page.get('leaderboard') or {}
+          competitors = lb.get('competitors', lb.get('rows', []))
+
+          def parse_par(val):
+              if val is None or val == '' or val == '--': return None
+              s = str(val).strip().upper()
+              if s == 'E': return 0
+              if s in ('MC','CUT','WD','DQ'): return 20
+              try: return int(str(val).replace('+',''))
+              except: return None
+
+          golfers = []
+          for c in competitors:
+              name = c.get('displayName') or c.get('name') or (c.get('athlete') or {}).get('displayName', '')
+              if not name: continue
+              golfers.append({
+                  'pos':   'MC' if c.get('status') == 'cut' else (c.get('position') or str(len(golfers)+1)),
+                  'name':  name, 'flag': c.get('country', ''),
+                  'score': parse_par(c.get('totalScore') or c.get('toPar')),
+                  'today': parse_par(c.get('roundScore') or c.get('today')),
+                  'thru':  str(c.get('thru') or '-'),
+                  'r':     [parse_par(c.get(f'round{i}')) for i in range(1,5)]
+              })
+
+          active = sorted([g for g in golfers if g['pos'] != 'MC'], key=lambda g: g['score'] or 99)
+          cut    = [g for g in golfers if g['pos'] == 'MC']
+          for i, g in enumerate(active): g['pos'] = i + 1
+
+          name_match = re.search(r'<h1[^>]*>([^<]{5,80})</h1>', html)
+          tourn_name = name_match.group(1).strip() if name_match else ''
+
+          print(json.dumps({'tournamentId': tournament_id, 'tournamentName': tourn_name,
+              'status': '', 'round': 'R1', 'lastUpdated': '__TIMESTAMP__', 'golfers': active + cut}))
+          PYEOF
+          fi
+
+      - name: Add timestamp and save scores.json
+        run: |
+          TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          # Replace the __TIMESTAMP__ placeholder, or add timestamp if missing
+          if [ -f /tmp/scores_raw.json ]; then
+            sed "s/__TIMESTAMP__/$TIMESTAMP/g" /tmp/scores_raw.json > scores.json
+          elif python3 -c "import json,sys; d=json.load(open('scores.json')); print('ok')" 2>/dev/null; then
+            # scores.json already written correctly by previous step — add timestamp
+            python3 -c "
+          import json
+          with open('scores.json') as f: d = json.load(f)
+          import subprocess
+          ts = '$TIMESTAMP'
+          d['lastUpdated'] = ts
+          with open('scores.json','w') as f: json.dump(d, f)
+          "
+          fi
+          echo "scores.json contents preview:"
+          python3 -c "
+          import json
+          try:
+              d = json.load(open('scores.json'))
+              print(f'Tournament: {d.get(\"tournamentName\",\"?\")}')
+              print(f'Status: {d.get(\"status\",\"?\")}')
+              print(f'Golfers: {len(d.get(\"golfers\",[]))}')
+              for g in d.get('golfers',[])[:5]:
+                  print(f'  {g[\"pos\"]}. {g[\"name\"]} {g[\"score\"]}')
+          except Exception as e:
+              print(f'Preview error: {e}')
+          "
+
+      - name: Commit scores.json to repo
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add scores.json
+          # Only commit if scores.json actually changed
+          if git diff --staged --quiet; then
+            echo "No changes to scores.json — skipping commit"
+          else
+            git commit -m "Update golf scores $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git push
+          fi
