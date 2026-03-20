@@ -57,7 +57,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
 /* BUTTONS */
 .btnp{background:var(--lime);color:var(--dark);border:none;padding:12px 26px;border-radius:100px;font-size:14px;font-weight:700;transition:all .2s;white-space:nowrap;display:inline-flex;align-items:center;gap:8px}
 .btnp:hover{background:var(--limd);transform:translateY(-1px)}
-.btnp .arr{width:24px;height:24px;background:var(--dark);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;flex-shrink:0}
+.btnp .arr{font-size:16px;flex-shrink:0;opacity:.8}
 .btns{background:transparent;color:var(--bg);border:2px solid var(--bg);padding:10px 22px;border-radius:100px;font-size:13px;font-weight:600;transition:all .2s}
 .btns:hover{background:var(--bg);color:var(--card)}
 .btnd{background:transparent;color:var(--red);border:1.5px solid var(--red);padding:7px 14px;border-radius:100px;font-size:12px;font-weight:600;transition:all .2s}
@@ -694,7 +694,14 @@ function renderHero(){
   document.getElementById('statE').textContent=t.entries.length;
   document.getElementById('statP').textContent=t.entries.length?'$'+(t.entries.length*t.buyin):'$0';
   document.getElementById('statR').textContent=t.round||'\u2014';
-  document.getElementById('statD').textContent=dp?'Closed':'Open';
+  if(dp){
+    document.getElementById('statD').textContent='Closed';
+  } else if(t.deadline){
+    var dd=new Date(t.deadline);
+    document.getElementById('statD').textContent=dd.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+  } else {
+    document.getElementById('statD').textContent='Open';
+  }
 }
 
 function renderHome(){
@@ -713,10 +720,34 @@ function renderHome(){
     cta.innerHTML='<div class="ctabar"><div><h3>Join the Pool \u2014 '+t.name+'</h3><p>Entries close '+ds+' \u00b7 $'+t.buyin+' buy-in</p></div><button class="btnp" onclick="goSec(\'enter\',document.querySelectorAll(\'.nbtn\')[1])">Submit Entry <span class=\"arr\">&#8594;</span></button></div>';
   } else { cta.innerHTML=''; }
 
-  var sorted=[].concat(t.entries).sort(function(a,b){return a.score-b.score;});
-  var adj=Math.max(0,t.entries.length*t.buyin-t.buyin);
-  var pays=[Math.round(adj*.6),Math.round(adj*.25),Math.round(adj*.15)];
   var gm={};t.golfers.forEach(function(g){gm[g.name]=g.score;});
+  // Always recalculate entry scores live from current golfer map
+  t.entries.forEach(function(e){
+    var pk=Object.values(e.picks).filter(Boolean);
+    var sc=pk.map(function(p){var s=gm[p];return typeof s==='number'?s:20;}).sort(function(a,b){return a-b;});
+    e.score=sc.slice(0,5).reduce(function(s,v){return s+v;},0);
+  });
+  var sorted=[].concat(t.entries).sort(function(a,b){
+    if(a.score!==b.score)return a.score-b.score;
+    // Tiebreaker 1: winning score guess (closest to actual leader score)
+    var leader=t.golfers.length?t.golfers[0].score:null;
+    if(leader!==null&&leader!==undefined){
+      var da=Math.abs((a.tb1||0)-leader),db=Math.abs((b.tb1||0)-leader);
+      if(da!==db)return da-db;
+    }
+    // Tiebreaker 2: cut line guess
+    var cutScore=t.golfers.length?t.golfers.filter(function(g){return g.pos!=='MC';}).slice(-1)[0]:null;
+    if(cutScore){
+      var da2=Math.abs((a.tb2||0)-cutScore.score),db2=Math.abs((b.tb2||0)-cutScore.score);
+      if(da2!==db2)return da2-db2;
+    }
+    return 0;
+  });
+  // Detect ties for payout splitting
+  // Subtract 1 free organizer entry from pot
+  var adj=Math.max(0,(t.entries.length-1)*t.buyin);
+  var totalPot=Math.round(adj);
+  var pays=[Math.round(adj*.6),Math.round(adj*.25),Math.round(adj*.15)];
   var totalEntries=t.entries.length;
 
   // Build roster % map: name -> count of entries containing that player
@@ -738,8 +769,30 @@ function renderHome(){
   if(!sorted.length){
     document.getElementById('poolTbody').innerHTML='<tr><td colspan="9"><div class="empty"><div class="ei">&#128203;</div><p>'+(dp?'No entries yet.':'Entries shown after deadline passes.')+'</p></div></td></tr>';
   } else {
+    // Detect ties
+    var tieMap={};
+    sorted.forEach(function(e,i){
+      var key=e.score+'_'+(e.tb1||'')+'_'+(e.tb2||'');
+      if(!tieMap[key])tieMap[key]=[];
+      tieMap[key].push(i);
+    });
     document.getElementById('poolTbody').innerHTML=sorted.map(function(e,i){
-      var r=i+1,rc=r<=3?'r'+r:'rn',pb=r<=3?'<span class="paybdg">&#128176; $'+pays[r-1]+'</span>':'';
+      var r=i+1;
+      // Check if tied with others at same score
+      var key=e.score+'_'+(e.tb1||'')+'_'+(e.tb2||'');
+      var tied=tieMap[key].length>1;
+      var displayR=tied?'T'+r:r;
+      var rc=r<=3?'r'+r:'rn',pb='';
+      if(tied){
+        // Split payout across tied positions
+        var tiedIdxs=tieMap[key];
+        var splitAmt=0;
+        tiedIdxs.forEach(function(ti){if(ti<3)splitAmt+=pays[ti];});
+        if(tiedIdxs.indexOf(i)<tiedIdxs.length&&tiedIdxs.some(function(ti){return ti<3;}))
+          pb='<span class="paybdg">&#128176; $'+Math.round(splitAmt/tiedIdxs.filter(function(ti){return ti<3;}).length)+'</span>';
+      } else if(r<=3){
+        pb='<span class="paybdg">&#128176; $'+pays[r-1]+'</span>';
+      }
       if(!dp)return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk rn">\u2014</span></td><td><div style="font-weight:600">'+e.name+'</div><div style="font-size:11px;color:var(--txl)">'+e.email+'</div></td><td colspan="6" style="color:var(--txl);font-size:12px;font-style:italic">Lineup hidden until deadline passes</td><td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
       // Show top 5 scoring picks (or all 8 if no scores yet)
       var picks=Object.values(e.picks).filter(Boolean);
@@ -752,7 +805,7 @@ function renderHome(){
       }).join('');
       // Pad if fewer than 5
       while(topPicks.length<5){pickHtml+='<td></td>';topPicks.push({});}
-      return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk '+rc+'">'+r+'</span></td><td><div style="font-weight:600">'+e.name+'</div><div style="font-size:11px;color:var(--txl)">'+e.email+'</div></td><td>'+fmtS(e.score)+'</td>'+pickHtml+'<td>'+pb+'</td><td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
+      return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk '+rc+'">'+displayR+'</span></td><td><div style="font-weight:600">'+e.name+'</div><div style="font-size:11px;color:var(--txl)">'+e.email+'</div></td><td>'+fmtS(e.score)+'</td>'+pickHtml+'<td>'+pb+'</td><td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
     }).join('');
   }
 
@@ -812,16 +865,18 @@ function openDr(idx){
   if(dp){
     var ss=e.score,sc2=ss<0?'su':ss===0?'se':'so';
     h+='<div class="dscbig '+sc2+'">'+fmtS(ss)+'</div><div class="dsclbl">Total Score (5 best of 8)</div>';
-    h+='<div class="drounds">';
-    ['R1','R2','R3','R4'].forEach(function(rl,ri){var v=e.r&&e.r[ri]!==''?e.r[ri]:null;h+='<div class="drd"><div class="drdl">'+rl+'</div><div class="drdv">'+(v!==null?fmtS(v):'<span style="color:#ccc">&#8212;</span>')+'</div></div>';});
-    h+='</div>';
     [1,2,3,4,5].forEach(function(ti){
       var keys=TK[ti];
       h+='<div class="dtier"><div class="dthead"><span>'+TL[ti]+'</span><span style="opacity:.6;font-size:10px">'+(ti===1||ti===5?'Pick 1':'Pick 2')+'</span></div>';
       keys.forEach(function(k){var nm=e.picks[k];if(!nm)return;var ps=gm[nm]!==undefined?gm[nm]:20;var ic=cnt.includes(ps);h+='<div class="dpick'+(ic?' cnt':'')+'"><div><div class="dpnm">'+nm+'</div>'+(ic?'<span class="cntbdg">Counted in top 5</span>':'')+'</div><div class="dpsc">'+fmtS(ps)+'</div></div>';});
       h+='</div>';
     });
-    h+='<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin:20px 0 10px;color:var(--txt)">Tiebreakers</div><div class="tbrow"><span class="tblbl">Winning Score Guess</span><span class="tbval">'+fmtSR(e.tb1)+'</span></div><div class="tbrow"><span class="tblbl">Cut Line Guess</span><span class="tbval">'+fmtSR(e.tb2)+'</span></div>';
+    var leader=t.golfers.length?t.golfers[0].score:null;
+    var tb1diff=leader!==null&&e.tb1!==undefined?Math.abs(e.tb1-leader):null;
+    var tb1note=tb1diff!==null?'<span style="font-size:11px;color:var(--txl);margin-left:6px">(off by '+tb1diff+')</span>':'';
+    h+='<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin:20px 0 10px;color:var(--txt)">Tiebreakers</div>'
+      +'<div class="tbrow"><span class="tblbl">Winning Score Guess</span><span class="tbval">'+fmtSR(e.tb1)+tb1note+'</span></div>'
+      +'<div class="tbrow"><span class="tblbl">Cut Line Guess</span><span class="tbval">'+fmtSR(e.tb2)+'</span></div>';
   } else {
     h+='<div style="background:rgba(10,61,34,.05);border:1px solid rgba(10,61,34,.1);border-radius:14px;padding:28px;text-align:center;color:var(--txl)"><div style="font-size:36px;margin-bottom:12px">&#128274;</div><strong style="color:var(--txt);display:block;margin-bottom:6px">Lineup Hidden</strong>Picks are revealed after the entry deadline passes.</div>';
   }
@@ -1089,9 +1144,8 @@ function showLeaderboardPreview(data, resultEl) {
 
 function startAutoRf() {
   clearInterval(rfTimer);
-  var t = getActive();
-  if (!t || !t.liveConfig || !t.liveConfig.interval || t.liveConfig.interval === 0) return;
-  rfTimer = setInterval(triggerRefresh, t.liveConfig.interval * 60 * 1000);
+  // Always auto-refresh every 5 minutes — GitHub Actions updates scores.json on same schedule
+  rfTimer = setInterval(function(){ triggerRefresh(true); }, 5 * 60 * 1000);
 }
 
 function renderLiveCfg() {
