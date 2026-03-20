@@ -99,6 +99,8 @@ input,textarea,select{font-family:'Inter',sans-serif}
 .livedot{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:var(--lime);text-transform:uppercase;letter-spacing:1px}
 .livedot::before{content:'';width:7px;height:7px;background:var(--lime);border-radius:50%;animation:pulse 1.5s infinite;display:inline-block}
 .lupd{font-size:11px;color:rgba(240,237,204,.4)}
+.glink{color:var(--bg2);cursor:pointer;font-weight:600;text-decoration:underline;text-decoration-style:dotted;text-underline-offset:2px}
+.glink:hover{color:var(--bg)}
 /* FORM */
 .fhero{background:var(--bg);padding:32px;text-align:center}
 .fhero h2{font-family:'Syne',sans-serif;font-size:28px;font-weight:800;color:var(--card);margin-bottom:8px}
@@ -275,7 +277,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
       </div>
       <div class="tbwrap">
         <table class="tbl">
-          <thead><tr><th>Pos</th><th>Entrant</th><th>Score</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Payout</th><th></th></tr></thead>
+          <thead><tr><th>Pos</th><th>Entrant</th><th>Score</th><th colspan="5" style="text-align:center">Top Picks</th><th>Payout</th><th></th></tr></thead>
           <tbody id="poolTbody"></tbody>
         </table>
       </div>
@@ -370,6 +372,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
         <div class="acrd" onclick="openPanel('live')"><div class="atop"></div><div class="abody"><div class="aico">&#128225;</div><div class="atit">Live Scoring Config</div><div class="adsc">Connect your live scoring API</div></div></div>
         <div class="acrd" onclick="openPanel('theme')"><div class="atop"></div><div class="abody"><div class="aico">&#127912;</div><div class="atit">Theme &amp; Design</div><div class="adsc">Colors and fonts per tournament</div></div></div>
         <div class="acrd" onclick="openPanel('announce')"><div class="atop"></div><div class="abody"><div class="aico">&#128226;</div><div class="atit">Announcements</div><div class="adsc">Homepage messages and instructions</div></div></div>
+        <div class="acrd" onclick="openPanel('namemap')"><div class="atop"></div><div class="abody"><div class="aico">&#128259;</div><div class="atit">Fix Player Names</div><div class="adsc">Rename misspelled players across all entries</div></div></div>
       </div>
 
       <div class="panel" id="panel-tourn">
@@ -528,6 +531,24 @@ input,textarea,select{font-family:'Inter',sans-serif}
           <button class="btnp" onclick="saveAnn()">Save <span class="arr">&#8594;</span></button>
         </div>
       </div>
+
+      <div class="panel" id="panel-namemap">
+        <div class="phead"><h3>Fix Player Names</h3><button class="pclose" onclick="closePanel('namemap')">&#10005;</button></div>
+        <div class="pbody">
+          <div class="snote">
+            <strong style="color:var(--bg);display:block;margin-bottom:6px">&#128259; Fix name mismatches</strong>
+            Use this when a player in your entries is spelled differently from how ESPN spells it (e.g. missing accent marks, different formatting). Renaming here updates <strong>all entries</strong> and <strong>the tier list</strong> at once so scores match correctly.
+          </div>
+          <div id="nameMismatchEl"></div>
+          <hr class="divider">
+          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:14px;color:var(--txt)">Manual rename</div>
+          <div class="frow">
+            <div class="fgrp"><label class="flbl">Current name (in entries)</label><input type="text" class="finp" id="nmOld" placeholder="e.g. Alejandro Tosti"></div>
+            <div class="fgrp"><label class="flbl">Correct name (ESPN spelling)</label><input type="text" class="finp" id="nmNew" placeholder="e.g. Alejandro Tostí"></div>
+          </div>
+          <button class="btnp" onclick="applyNameRemap()">Rename Everywhere <span class="arr">&#8594;</span></button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -680,7 +701,7 @@ function renderHome(){
   if(!t){
     cta.innerHTML='';
     document.getElementById('poolTbody').innerHTML='<tr><td colspan="9"><div class="empty"><div class="ei">&#9971;</div><strong>No Active Tournament</strong><p>Create one in Admin to get started.</p></div></td></tr>';
-    document.getElementById('golfTbody').innerHTML='<tr><td colspan="8"><div class="empty"><div class="ei">&#128202;</div><p>No active tournament.</p></div></td></tr>';
+    document.getElementById('golfTbody').innerHTML='<tr><td colspan="9"><div class="empty"><div class="ei">&#128202;</div><p>No active tournament.</p></div></td></tr>';
     document.getElementById('payEl').innerHTML='';
     return;
   }
@@ -693,44 +714,75 @@ function renderHome(){
   var sorted=[].concat(t.entries).sort(function(a,b){return a.score-b.score;});
   var adj=Math.max(0,t.entries.length*t.buyin-t.buyin);
   var pays=[Math.round(adj*.6),Math.round(adj*.25),Math.round(adj*.15)];
+  var gm={};t.golfers.forEach(function(g){gm[g.name]=g.score;});
+  var totalEntries=t.entries.length;
 
+  // Build roster % map: name -> count of entries containing that player
+  var rosterCount={};
+  t.entries.forEach(function(e){
+    Object.values(e.picks).filter(Boolean).forEach(function(nm){
+      rosterCount[nm]=(rosterCount[nm]||0)+1;
+    });
+  });
+  function rosterPct(name){
+    if(!totalEntries)return '';
+    var cnt=rosterCount[name]||0;
+    if(!cnt)return '';
+    var pct=Math.round(cnt/totalEntries*100);
+    return '<span class="inpool">'+pct+'%</span>';
+  }
+
+  // ── Pool leaderboard ──
   if(!sorted.length){
     document.getElementById('poolTbody').innerHTML='<tr><td colspan="9"><div class="empty"><div class="ei">&#128203;</div><p>'+(dp?'No entries yet.':'Entries shown after deadline passes.')+'</p></div></td></tr>';
   } else {
     document.getElementById('poolTbody').innerHTML=sorted.map(function(e,i){
       var r=i+1,rc=r<=3?'r'+r:'rn',pb=r<=3?'<span class="paybdg">&#128176; $'+pays[r-1]+'</span>':'';
       if(!dp)return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk rn">\u2014</span></td><td><div style="font-weight:600">'+e.name+'</div><div style="font-size:11px;color:var(--txl)">'+e.email+'</div></td><td colspan="6" style="color:var(--txl);font-size:12px;font-style:italic">Lineup hidden until deadline passes</td><td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
-      var r1=e.r&&e.r[0]!==''?fmtS(e.r[0]):'&#8212;',r2=e.r&&e.r[1]!==''?fmtS(e.r[1]):'&#8212;',r3=e.r&&e.r[2]!==''?fmtS(e.r[2]):'&#8212;',r4=e.r&&e.r[3]!==''?fmtS(e.r[3]):'&#8212;';
-      return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk '+rc+'">'+r+'</span></td><td><div style="font-weight:600">'+e.name+'</div><div style="font-size:11px;color:var(--txl)">'+e.email+'</div></td><td>'+fmtS(e.score)+'</td><td>'+r1+'</td><td>'+r2+'</td><td>'+r3+'</td><td>'+r4+'</td><td>'+pb+'</td><td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
+      // Show top 5 scoring picks (or all 8 if no scores yet)
+      var picks=Object.values(e.picks).filter(Boolean);
+      var pickScores=picks.map(function(p){return{name:p,score:typeof gm[p]==='number'?gm[p]:null};});
+      pickScores.sort(function(a,b){return (a.score!==null?a.score:99)-(b.score!==null?b.score:99);});
+      var topPicks=pickScores.slice(0,5);
+      var pickHtml=topPicks.map(function(p){
+        var sc=p.score!==null?fmtS(p.score):'&#8212;';
+        return '<td style="font-size:11px"><div style="font-weight:600;white-space:nowrap;overflow:hidden;max-width:90px;text-overflow:ellipsis" title="'+p.name+'">'+p.name.split(' ').pop()+'</div><div>'+sc+'</div></td>';
+      }).join('');
+      // Pad if fewer than 5
+      while(topPicks.length<5){pickHtml+='<td></td>';topPicks.push({});}
+      return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk '+rc+'">'+r+'</span></td><td><div style="font-weight:600">'+e.name+'</div><div style="font-size:11px;color:var(--txl)">'+e.email+'</div></td><td>'+fmtS(e.score)+'</td>'+pickHtml+'<td>'+pb+'</td><td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
     }).join('');
   }
 
-  var gm={};t.golfers.forEach(function(g){gm[g.name]=g.score;});
-  var ip=new Set(t.entries.flatMap(function(e){return Object.values(e.picks);}));
-  // Detect if this is pre-round (tee times) vs in-progress/finished
-  var hasScores=t.golfers.length>0&&t.golfers.some(function(g){return g.score!==null&&g.score!==undefined&&g.thru&&g.thru!=='-'&&g.thru!=='TBD';});
+  // ── Tournament leaderboard ──
+  var hasScores=t.golfers.length>0&&t.golfers.some(function(g){return g.score!==null&&g.score!==undefined;});
   var showTeeTimes=t.golfers.length>0&&!hasScores;
+
   if(!t.golfers.length){
-    document.getElementById('golfTbody').innerHTML='<tr><td colspan="8"><div class="empty"><div class="ei">&#127947;</div><p>No scores yet. Use Live Scoring Config in Admin to connect ESPN.</p></div></td></tr>';
-    document.getElementById('golfThead').innerHTML='<tr><th>Pos</th><th>Player</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>In Pool</th></tr>';
+    document.getElementById('golfTbody').innerHTML='<tr><td colspan="9"><div class="empty"><div class="ei">&#127947;</div><p>No scores yet. Run the GitHub Action to fetch live scores.</p></div></td></tr>';
+    document.getElementById('golfThead').innerHTML='<tr><th>Pos</th><th>Player</th><th>Tee Time</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr>';
   } else if(showTeeTimes){
-    // Pre-round: show tee time view
-    document.getElementById('golfThead').innerHTML='<tr><th>#</th><th>Player</th><th>Tee Time</th><th>Group</th><th>In Pool</th></tr>';
-    var teeRows=t.golfers.map(function(g,i){
-      var ipb=ip.has(g.name)?'<span class="inpool">In Pool</span>':'';
-      var teeTime=g.thru||g.teeTime||'TBD';
-      var group=g.today||'';
-      return'<tr><td style="color:var(--txl)">'+(i+1)+'</td><td>'+g.name+'</td><td style="font-family:monospace;font-weight:600">'+teeTime+'</td><td style="font-size:12px;color:var(--txl)">'+group+'</td><td>'+ipb+'</td></tr>';
-    }).join('');
-    document.getElementById('golfTbody').innerHTML=teeRows;
+    document.getElementById('golfThead').innerHTML='<tr><th>#</th><th>Player</th><th>Tee Time</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr>';
+    var h2='';
+    t.golfers.forEach(function(g,i){
+      var rp=rosterPct(g.name);
+      var nm='<span class="glink" onclick="openGolferModal(\'' + g.name.replace(/'/g,"\\'") + '\')">'+g.name+'</span>';
+      h2+='<tr><td style="color:var(--txl)">'+(i+1)+'</td><td>'+nm+'</td><td style="font-family:monospace;font-weight:600">'+(g.thru||'TBD')+'</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>&#8212;</td><td>'+rp+'</td></tr>';
+    });
+    document.getElementById('golfTbody').innerHTML=h2;
   } else {
-    document.getElementById('golfThead').innerHTML='<tr><th>Pos</th><th>Player</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>In Pool</th></tr>';
+    document.getElementById('golfThead').innerHTML='<tr><th>Pos</th><th>Player</th><th>Tee Time</th><th>Score</th><th>Today</th><th>Thru</th><th>R1</th><th>R2</th><th>R3</th><th>R4</th><th>Rostered</th></tr>';
     var h='',cd=false;
     t.golfers.forEach(function(g){
-      if(!cd&&g.pos==='MC'){h+='<tr class="cutrow"><td colspan="8" style="padding:6px 16px"><span class="cutlbl">&#9986; Cut Line</span></td></tr>';cd=true;}
-      var ipb=ip.has(g.name)?'<span class="inpool">In Pool</span>':'';
-      var gr1=g.r&&g.r[0]!==null&&g.r[0]!==''?fmtS(g.r[0]):'&#8212;',gr2=g.r&&g.r[1]!==null&&g.r[1]!==''?fmtS(g.r[1]):'&#8212;';
-      h+='<tr><td><strong>'+g.pos+'</strong></td><td>'+g.name+'</td><td>'+fmtS(g.score)+'</td><td>'+fmtS(g.today)+'</td><td style="font-size:12px;color:var(--txl)">'+g.thru+'</td><td>'+gr1+'</td><td>'+gr2+'</td><td>'+ipb+'</td></tr>';
+      if(!cd&&g.pos==='MC'){h+='<tr class="cutrow"><td colspan="11" style="padding:6px 16px"><span class="cutlbl">&#9986; Cut Line</span></td></tr>';cd=true;}
+      var rp=rosterPct(g.name);
+      var gr1=g.r&&g.r[0]!==null&&g.r[0]!==''?fmtS(g.r[0]):'&#8212;';
+      var gr2=g.r&&g.r[1]!==null&&g.r[1]!==''?fmtS(g.r[1]):'&#8212;';
+      var gr3=g.r&&g.r[2]!==null&&g.r[2]!==''?fmtS(g.r[2]):'&#8212;';
+      var gr4=g.r&&g.r[3]!==null&&g.r[3]!==''?fmtS(g.r[3]):'&#8212;';
+      var teeTime=g.teeTime?'<span style="font-size:11px;color:var(--txl)">'+g.teeTime+'</span>':'&#8212;';
+      var nm='<span class="glink" onclick="openGolferModal(\'' + g.name.replace(/'/g,"\\'") + '\')">'+g.name+'</span>';
+      h+='<tr><td><strong>'+g.pos+'</strong></td><td>'+nm+'</td><td>'+teeTime+'</td><td>'+fmtS(g.score)+'</td><td>'+fmtS(g.today)+'</td><td style="font-size:12px;color:var(--txl)">'+g.thru+'</td><td>'+gr1+'</td><td>'+gr2+'</td><td>'+gr3+'</td><td>'+gr4+'</td><td>'+rp+'</td></tr>';
     });
     document.getElementById('golfTbody').innerHTML=h;
   }
@@ -1079,7 +1131,7 @@ function checkAdmin(){
   } else { toast('Incorrect password','\u274c'); }
 }
 function adminOut(){document.getElementById('adminDash').style.display='none';document.getElementById('adminAuth').style.display='block';document.getElementById('adminPw').value='';document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('open');});}
-function openPanel(id){document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('open');});var el=document.getElementById('panel-'+id);el.classList.add('open');el.scrollIntoView({behavior:'smooth',block:'nearest'});if(id==='tiers')renderTBuilder();if(id==='entries')renderAEntries();if(id==='scoring')renderMScoring();if(id==='live')renderLiveCfg();}
+function openPanel(id){document.querySelectorAll('.panel').forEach(function(p){p.classList.remove('open');});var el=document.getElementById('panel-'+id);el.classList.add('open');el.scrollIntoView({behavior:'smooth',block:'nearest'});if(id==='tiers')renderTBuilder();if(id==='entries')renderAEntries();if(id==='scoring')renderMScoring();if(id==='live')renderLiveCfg();if(id==='namemap')renderNameMismatch();}
 function closePanel(id){document.getElementById('panel-'+id).classList.remove('open');}
 
 function renderTList(){
@@ -1489,6 +1541,168 @@ function adjustColor(hex,amount){
 }
 function loadSavedTheme(){
   try{var db=getDB();if(db.theme)applyThemeVars(db.theme);}catch(e){}
+}
+
+// ── Feature 4: Golfer modal — who has this player ──────────────────────
+function openGolferModal(name) {
+  var t = getActive();
+  if (!t) return;
+  var entries = t.entries.filter(function(e) {
+    return Object.values(e.picks).indexOf(name) > -1;
+  });
+  var total = t.entries.length;
+  var pct = total ? Math.round(entries.length / total * 100) : 0;
+  var gm = {};
+  t.golfers.forEach(function(g) { gm[g.name] = g; });
+  var golfer = gm[name] || {};
+
+  var m = document.getElementById('golferModal');
+  if (!m) {
+    m = document.createElement('div');
+    m.id = 'golferModal';
+    m.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px)';
+    m.addEventListener('click', function(ev) { if (ev.target === m) m.remove(); });
+    document.body.appendChild(m);
+  }
+
+  var scoreInfo = '';
+  if (golfer.score !== null && golfer.score !== undefined) {
+    scoreInfo = '<div style="display:flex;gap:12px;margin-bottom:18px;flex-wrap:wrap">'
+      + '<div style="background:var(--bg);color:var(--card);padding:10px 18px;border-radius:10px;text-align:center"><div style="font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:1px">Total</div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:800">' + fmtS(golfer.score) + '</div></div>'
+      + '<div style="background:var(--bg);color:var(--card);padding:10px 18px;border-radius:10px;text-align:center"><div style="font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:1px">Today</div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:800">' + fmtS(golfer.today) + '</div></div>'
+      + '<div style="background:var(--bg);color:var(--card);padding:10px 18px;border-radius:10px;text-align:center"><div style="font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:1px">Thru</div><div style="font-family:\'Syne\',sans-serif;font-size:26px;font-weight:800">' + (golfer.thru || '-') + '</div></div>'
+      + '</div>';
+  }
+
+  var entryRows = entries.length
+    ? entries.map(function(e, i) {
+        var sorted = [].concat(t.entries).sort(function(a,b){return a.score-b.score;});
+        var pos = sorted.findIndex(function(x){return x.id===e.id;}) + 1;
+        var tierKey = Object.keys(e.picks).find(function(k){return e.picks[k]===name;}) || '';
+        return '<div style="display:flex;align-items:center;gap:10px;padding:9px 12px;background:var(--white);border-radius:8px;margin-bottom:6px;border:1px solid var(--card2)">'
+          + '<span style="font-size:11px;font-weight:700;color:var(--bg2);min-width:28px">#'+pos+'</span>'
+          + '<span style="flex:1;font-weight:600;font-size:13px">'+e.name+'</span>'
+          + '<span style="font-size:10px;background:var(--bg);color:var(--card);padding:2px 8px;border-radius:100px">'+tierKey+'</span>'
+          + '</div>';
+      }).join('')
+    : '<p style="color:var(--txl);font-size:13px">No entries have this player.</p>';
+
+  m.innerHTML = '<div style="background:var(--card);border-radius:20px;width:100%;max-width:480px;overflow:hidden;box-shadow:0 16px 60px rgba(0,0,0,.3)">'
+    + '<div style="background:var(--bg);padding:16px 22px;display:flex;align-items:center;justify-content:space-between">'
+    + '<span style="font-family:\'Syne\',sans-serif;font-size:18px;font-weight:800;color:var(--card)">' + name + '</span>'
+    + '<button onclick="document.getElementById(\'golferModal\').remove()" style="background:rgba(240,237,204,.12);border:none;color:var(--card);width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer">&#10005;</button>'
+    + '</div>'
+    + '<div style="padding:20px">'
+    + scoreInfo
+    + '<div style="font-size:13px;color:var(--txl);margin-bottom:12px">Rostered by <strong style="color:var(--txt)">' + entries.length + '</strong> of <strong style="color:var(--txt)">' + total + '</strong> entries (' + pct + '%)</div>'
+    + entryRows
+    + '</div></div>';
+}
+
+// ── Feature 5: Name mismatch detection and global rename ─────────────────
+function renderNameMismatch() {
+  var t = getActive();
+  var el = document.getElementById('nameMismatchEl');
+  if (!t || !el) return;
+
+  // All names used in entries
+  var entryNames = new Set();
+  t.entries.forEach(function(e) {
+    Object.values(e.picks).filter(Boolean).forEach(function(n) { entryNames.add(n); });
+  });
+
+  // All names from ESPN scores
+  var espnNames = new Set(t.golfers.map(function(g) { return g.name; }));
+
+  // Names in entries that don't match any ESPN name
+  var mismatches = [];
+  entryNames.forEach(function(name) {
+    if (!espnNames.has(name) && espnNames.size > 0) {
+      // Find closest ESPN name for suggestion
+      var suggestion = findClosestName(name, Array.from(espnNames));
+      mismatches.push({ name: name, suggestion: suggestion });
+    }
+  });
+
+  if (!mismatches.length && espnNames.size > 0) {
+    el.innerHTML = '<div style="background:#e8f5ec;border:1px solid rgba(10,61,34,.2);border-radius:10px;padding:12px 16px;font-size:13px;color:#1a6e3a;margin-bottom:16px">&#10003; All entry names match ESPN — no mismatches detected!</div>';
+    return;
+  }
+  if (!espnNames.size) {
+    el.innerHTML = '<div class="snote" style="margin-bottom:16px">No live scores loaded yet. Fetch scores first to detect mismatches.</div>';
+    return;
+  }
+
+  el.innerHTML = '<div style="margin-bottom:16px">'
+    + '<div style="font-size:13px;font-weight:700;color:var(--red);margin-bottom:10px">&#9888; ' + mismatches.length + ' name mismatch' + (mismatches.length>1?'es':'') + ' found — these players won\'t score:</div>'
+    + mismatches.map(function(m) {
+        var safeOld = m.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+        var safeNew = m.suggestion ? m.suggestion.replace(/'/g, "\\'").replace(/"/g, '&quot;') : '';
+        return '<div style="display:flex;align-items:center;gap:8px;background:white;border:1px solid var(--card3);border-radius:10px;padding:10px 12px;margin-bottom:6px;flex-wrap:wrap">'
+          + '<span style="flex:1;font-weight:600;font-size:13px;color:var(--red)">'+m.name+'</span>'
+          + '<span style="font-size:12px;color:var(--txl)">&#8594;</span>'
+          + '<input type="text" class="finp" value="'+safeNew+'" id="fix_'+encodeURIComponent(m.name)+'" style="flex:2;min-width:160px;padding:7px 10px;font-size:13px" placeholder="Correct ESPN name">'
+          + '<button class="btnp" style="font-size:12px;padding:7px 14px" onclick="applyNameRemapDirect(\''+safeOld+'\',document.getElementById(\'fix_'+encodeURIComponent(m.name)+'\').value)">Fix</button>'
+          + '</div>';
+      }).join('')
+    + '</div>';
+}
+
+function findClosestName(name, candidates) {
+  // Simple fuzzy: normalize (lowercase, strip accents) and find best match
+  function norm(s) { return s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z ]/g,''); }
+  var n = norm(name);
+  var best = null, bestScore = 0;
+  candidates.forEach(function(c) {
+    var cn = norm(c);
+    // Score based on common words
+    var nWords = n.split(' '), cWords = cn.split(' ');
+    var common = nWords.filter(function(w) { return w.length > 2 && cWords.indexOf(w) > -1; }).length;
+    if (common > bestScore) { bestScore = common; best = c; }
+  });
+  return best;
+}
+
+function applyNameRemapDirect(oldName, newName) {
+  if (!newName || !newName.trim()) { toast('Enter the correct name', '\u26a0\ufe0f'); return; }
+  document.getElementById('nmOld').value = oldName;
+  document.getElementById('nmNew').value = newName.trim();
+  applyNameRemap();
+}
+
+function applyNameRemap() {
+  var oldName = document.getElementById('nmOld').value.trim();
+  var newName = document.getElementById('nmNew').value.trim();
+  if (!oldName || !newName) { toast('Enter both old and new names', '\u26a0\ufe0f'); return; }
+  if (oldName === newName) { toast('Names are the same', '\u26a0\ufe0f'); return; }
+
+  var db = getDB();
+  var t = db.tournaments.find(function(t) { return t.status === 'active'; });
+  if (!t) { toast('No active tournament', '\u26a0\ufe0f'); return; }
+
+  var count = 0;
+  var pickKeys = ['T1','T2a','T2b','T3a','T3b','T4a','T4b','T5'];
+
+  // Rename in all entries
+  t.entries.forEach(function(e) {
+    pickKeys.forEach(function(k) {
+      if (e.picks[k] === oldName) { e.picks[k] = newName; count++; }
+    });
+  });
+
+  // Rename in tiers
+  Object.values(t.tiers).forEach(function(td) {
+    (td.golfers || []).forEach(function(g) {
+      if (g.name === oldName) { g.name = newName; }
+    });
+  });
+
+  saveDB(db);
+  document.getElementById('nmOld').value = '';
+  document.getElementById('nmNew').value = '';
+  renderNameMismatch();
+  refreshSite();
+  toast('Renamed "' + oldName + '" to "' + newName + '" in ' + count + ' pick' + (count !== 1 ? 's' : '') + '!');
 }
 
 function refreshSite(){renderHero();renderHome();renderRules();renderHist();}
