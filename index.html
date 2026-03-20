@@ -776,27 +776,29 @@ function renderHome(){
   if(!sorted.length){
     document.getElementById('poolTbody').innerHTML='<tr><td colspan="9"><div class="empty"><div class="ei">&#128203;</div><p>'+(dp?'No entries yet.':'Entries shown after deadline passes.')+'</p></div></td></tr>';
   } else {
-    // Detect ties
+    // Detect ties — key on score only (tiebreakers determine order but don't break the tie for display)
     var tieMap={};
     sorted.forEach(function(e,i){
-      var key=e.score+'_'+(e.tb1||'')+'_'+(e.tb2||'');
+      var key=String(e.score);
       if(!tieMap[key])tieMap[key]=[];
       tieMap[key].push(i);
     });
     document.getElementById('poolTbody').innerHTML=sorted.map(function(e,i){
       var r=i+1;
-      // Check if tied with others at same score
-      var key=e.score+'_'+(e.tb1||'')+'_'+(e.tb2||'');
+      var key=String(e.score);
       var tied=tieMap[key].length>1;
-      var displayR=tied?'T'+r:r;
-      var rc=r<=3?'r'+r:'rn',pb='';
+      // Display rank: T1, T1 for ties; use lowest index in tie group for rank number
+      var tieStartRank=tieMap[key][0]+1;
+      var displayR=tied?'T'+tieStartRank:r;
+      var rc=tieStartRank<=3?'r'+tieStartRank:'rn';
+      var pb='';
       if(tied){
         // Split payout across tied positions
         var tiedIdxs=tieMap[key];
         var splitAmt=0;
         tiedIdxs.forEach(function(ti){if(ti<3)splitAmt+=pays[ti];});
-        if(tiedIdxs.indexOf(i)<tiedIdxs.length&&tiedIdxs.some(function(ti){return ti<3;}))
-          pb='<span class="paybdg">&#128176; $'+Math.round(splitAmt/tiedIdxs.filter(function(ti){return ti<3;}).length)+'</span>';
+        var payingTied=tiedIdxs.filter(function(ti){return ti<3;}).length;
+        if(payingTied>0) pb='<span class="paybdg">&#128176; $'+Math.round(splitAmt/payingTied)+'</span>';
       } else if(r<=3){
         pb='<span class="paybdg">&#128176; $'+pays[r-1]+'</span>';
       }
