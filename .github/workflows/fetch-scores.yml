@@ -1,14 +1,14 @@
 name: Fetch Golf Scores
-
 on:
-  # Run every 5 minutes always
+  # Runs every 5 minutes — but the job exits immediately if toggle is OFF
   schedule:
     - cron: '*/5 * * * *'
-  # Also run on any push (re-enables if GitHub disabled it)
+  # Re-enables workflow if GitHub auto-disables it after 60 days
   push:
     paths:
       - 'tournament-id.txt'
-  # Manual trigger
+      - 'live-scoring.txt'
+  # Manual trigger always works regardless of toggle
   workflow_dispatch:
     inputs:
       tournament_id:
@@ -20,12 +20,32 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      - name: Check toggle
+        id: toggle
+        run: |
+          # Read live-scoring.txt — if it says "on" we proceed, anything else we skip
+          if [ -f live-scoring.txt ]; then
+            STATUS=$(cat live-scoring.txt | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
+          else
+            STATUS="off"
+          fi
+          echo "status=$STATUS" >> $GITHUB_OUTPUT
+          echo "Toggle is: $STATUS"
+
+      # For scheduled runs, skip everything if toggle is off
+      # Manual runs (workflow_dispatch) always proceed
+      - name: Skip if toggle is off
+        if: steps.toggle.outputs.status != 'on' && github.event_name == 'schedule'
+        run: |
+          echo "Live scoring is OFF — skipping. Edit live-scoring.txt to 'on' to enable."
+          exit 0
+
       - name: Get tournament ID
+        if: steps.toggle.outputs.status == 'on' || github.event_name == 'workflow_dispatch'
         id: tid
         run: |
           if [ -n "${{ github.event.inputs.tournament_id }}" ]; then
@@ -37,12 +57,12 @@ jobs:
           fi
 
       - name: Write empty scores if no tournament ID
-        if: steps.tid.outputs.id == ''
+        if: (steps.toggle.outputs.status == 'on' || github.event_name == 'workflow_dispatch') && steps.tid.outputs.id == ''
         run: |
           echo '{"error":"No tournament ID. Edit tournament-id.txt in your repo.","golfers":[]}' > scores.json
 
       - name: Fetch scores from ESPN
-        if: steps.tid.outputs.id != ''
+        if: (steps.toggle.outputs.status == 'on' || github.event_name == 'workflow_dispatch') && steps.tid.outputs.id != ''
         run: |
           TID="${{ steps.tid.outputs.id }}"
           echo "Fetching scores for tournament: $TID"
@@ -56,10 +76,11 @@ jobs:
           echo "Fetched $(wc -c < /tmp/espn_raw.json) bytes"
 
       - name: Parse scores
-        if: steps.tid.outputs.id != ''
+        if: (steps.toggle.outputs.status == 'on' || github.event_name == 'workflow_dispatch') && steps.tid.outputs.id != ''
         run: python3 fetch_scores.py "${{ steps.tid.outputs.id }}"
 
       - name: Commit scores.json
+        if: steps.toggle.outputs.status == 'on' || github.event_name == 'workflow_dispatch'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
