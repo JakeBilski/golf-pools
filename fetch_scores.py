@@ -59,24 +59,39 @@ for c in competitors:
 
     is_cut = c.get('status', '').lower() in ('cut', 'wd', 'dq')
 
-    scored_rounds = [ls for ls in linescores if ls.get('displayValue') not in (None, '', '--', 'E')]
+    # Count how many rounds have actual numeric scores
+    scored_rounds = []
+    for ls in linescores:
+        dv = ls.get('displayValue', ls.get('value'))
+        if dv is not None and str(dv).strip() not in ('', '--'):
+            scored_rounds.append(ls)
     num_scored = len(scored_rounds)
 
     thru_raw = find_stat('thru', 'holesPlayed', 'THRU')
 
+    # ── Thru detection (improved) ──
+    # Priority 1: Tournament-level final status means everyone is F
     if status_name in ('STATUS_FINAL', 'STATUS_PLAY_COMPLETE'):
         thru = 'F'
-    elif thru_raw and str(thru_raw) == '18':
+    # Priority 2: Explicit thru value from ESPN stats
+    elif thru_raw is not None:
+        thru_str = str(thru_raw).strip().upper()
+        if thru_str == 'F' or thru_str == '18':
+            thru = 'F'
+        elif thru_str.isdigit() and int(thru_str) > 0:
+            thru = thru_str
+        else:
+            thru = thru_str if thru_str != '--' else '-'
+    # Priority 3: Player was cut/WD/DQ — they're done
+    elif is_cut:
         thru = 'F'
-    elif thru_raw and str(thru_raw).isdigit() and int(thru_raw) > 0:
-        thru = str(thru_raw)
-    elif thru_raw and str(thru_raw).upper() == 'F':
-        thru = 'F'
+    # Priority 4: Infer from linescores — if they have scores for the current round, they finished
     else:
         round_num = int(current_round[1]) if current_round and len(current_round) > 1 else 1
         if num_scored >= round_num:
             thru = 'F'
-        else:
+        elif num_scored > 0 and num_scored == round_num - 1:
+            # They have previous round scores but not the current one — check tee time
             tee_time = c.get('teeTime', '')
             if tee_time:
                 try:
@@ -84,11 +99,18 @@ for c in competitors:
                     t_obj = dt.fromisoformat(tee_time.replace('Z', '+00:00'))
                     et = timezone(timedelta(hours=-4))
                     t_et = t_obj.astimezone(et)
-                    thru = t_et.strftime('%-I:%M %p')
+                    now_et = dt.now(et)
+                    # If tee time is in the past, they should be on the course
+                    if t_et < now_et:
+                        thru = '-'  # On course but no hole data
+                    else:
+                        thru = t_et.strftime('%-I:%M %p')
                 except:
                     thru = tee_time
             else:
                 thru = '-'
+        else:
+            thru = '-'
 
     rounds = [parse_par(ls.get('displayValue', ls.get('value'))) for ls in linescores[:4]]
     while len(rounds) < 4:
