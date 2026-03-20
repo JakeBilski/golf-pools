@@ -256,8 +256,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
   <div class="hero-pills">
     <div class="hpill"><div class="v" id="statE">&#8212;</div><div class="l">Entries</div></div>
     <div class="hpill"><div class="v" id="statP">&#8212;</div><div class="l">Pot</div></div>
-    <div class="hpill"><div class="v" id="statR">&#8212;</div><div class="l">Round</div></div>
-    <div class="hpill"><div class="v" id="statD">&#8212;</div><div class="l">Entries</div></div>
+    <div class="hpill"><div class="v" id="statD">&#8212;</div><div class="l">Entry Deadline</div></div>
   </div>
 </div>
 
@@ -392,6 +391,11 @@ input,textarea,select{font-family:'Inter',sans-serif}
           <div class="frow">
             <div class="fgrp"><label class="flbl">Buy-in ($)</label><input type="number" class="finp" id="tnBuyin" placeholder="50"></div>
             <div class="fgrp"><label class="flbl">Entry Deadline</label><input type="datetime-local" class="finp" id="tnDeadline"></div>
+          </div>
+          <div class="frow">
+            <div class="fgrp"><label class="flbl">1st Place %</label><input type="number" class="finp" id="tnP1" value="60" min="0" max="100"></div>
+            <div class="fgrp"><label class="flbl">2nd Place %</label><input type="number" class="finp" id="tnP2" value="25" min="0" max="100"></div>
+            <div class="fgrp"><label class="flbl">3rd Place %</label><input type="number" class="finp" id="tnP3" value="15" min="0" max="100"></div>
           </div>
           <button class="btnp" onclick="createTourn()">Create Tournament <span class="arr">&#8594;</span></button>
         </div>
@@ -684,7 +688,7 @@ function renderHero(){
     pill.innerHTML='<div class="draft-ey">No Active Tournament</div>';
     document.getElementById('heroName').textContent='Golf Betting Pool';
     document.getElementById('heroSub').textContent='Set up a tournament in Admin to get started';
-    ['statE','statP','statR','statD'].forEach(function(id){document.getElementById(id).textContent='\u2014';});
+    ['statE','statP','statD'].forEach(function(id){document.getElementById(id).textContent='\u2014';});
     return;
   }
   var dp=dlPassed(t);
@@ -692,13 +696,15 @@ function renderHero(){
   document.getElementById('heroName').textContent=t.name;
   document.getElementById('heroSub').textContent=(t.venue||'')+(t.startDate?' \u00b7 '+fmtD(t.startDate)+' \u2013 '+fmtD(t.endDate):'');
   document.getElementById('statE').textContent=t.entries.length;
-  document.getElementById('statP').textContent=t.entries.length?'$'+(t.entries.length*t.buyin):'$0';
-  document.getElementById('statR').textContent=t.round||'\u2014';
+  document.getElementById('statP').textContent=t.entries.length>1?'$'+((t.entries.length-1)*t.buyin):(t.entries.length===1?'$0':'$0');
   if(dp){
     document.getElementById('statD').textContent='Closed';
+    document.querySelector('#statD').closest('.hpill').querySelector('.l').textContent='Entry Deadline';
   } else if(t.deadline){
     var dd=new Date(t.deadline);
     document.getElementById('statD').textContent=dd.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
+    var dlbl=document.getElementById('statD').closest('.hpill').querySelector('.l');
+    if(dlbl)dlbl.textContent='Entry Deadline';
   } else {
     document.getElementById('statD').textContent='Open';
   }
@@ -747,7 +753,8 @@ function renderHome(){
   // Subtract 1 free organizer entry from pot
   var adj=Math.max(0,(t.entries.length-1)*t.buyin);
   var totalPot=Math.round(adj);
-  var pays=[Math.round(adj*.6),Math.round(adj*.25),Math.round(adj*.15)];
+  var po=t.payouts||[60,25,15];
+  var pays=[Math.round(adj*(po[0]/100)),Math.round(adj*(po[1]/100)),Math.round(adj*(po[2]/100))];
   var totalEntries=t.entries.length;
 
   // Build roster % map: name -> count of entries containing that player
@@ -914,7 +921,7 @@ function renderForm(editingId){
     if(pk.T5){FS.picks[5]=pk.T5;FS.used.add(pk.T5);}
   }
   var h='<div class="frow"><div class="fgrp"><label class="flbl">Full Name *</label><input type="text" class="finp" id="entName" placeholder="John Smith" value="'+(existingEntry?existingEntry.name.replace(/"/g,'&quot;'):'')+'"></div><div class="fgrp"><label class="flbl">Email Address *</label><input type="email" class="finp" id="entEmail" placeholder="john@example.com" value="'+(existingEntry?existingEntry.email.replace(/"/g,'&quot;'):'')+'"></div></div><div style="font-size:13px;color:var(--txl);margin-bottom:22px;line-height:1.6">Pick <strong>1</strong> from T1 &nbsp;\u00b7&nbsp; <strong>2</strong> each from T2, T3, T4 &nbsp;\u00b7&nbsp; <strong>1</strong> from T5 &nbsp;\u00b7&nbsp; No duplicate players'+(t.announcement?'<br><span style="color:var(--bg);font-style:italic">'+t.announcement+'</span>':'')+(isEdit?'<br><strong style="color:var(--bg)">Editing existing entry \u2014 your previous picks are highlighted.</strong>':'')+'</div>';
-  Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];h+='<div class="tsec"><div class="thead2"><span class="tlbl">'+td.label+'</span><span class="todds">'+td.odds+'</span><span class="tinst">'+td.inst+'</span></div><div class="tgrid">'+(td.golfers||[]).map(function(g){var isSel=FS.used.has(g.name);return'<div class="gcrd'+(isSel?' sel':'')+'" data-tier="'+tn+'" data-name="'+g.name.replace(/"/g,'&quot;')+'" onclick="togPick('+tn+',\''+g.name.replace(/'/g,"\\'")+'\''+',this)"><div class="gname">'+g.name+'</div><div class="godds">'+g.odds+'</div><div class="grank">'+g.rank+'</div></div>';}).join('')+'</div></div>';});
+  Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];h+='<div class="tsec"><div class="thead2"><span class="tlbl">'+td.label+'</span><span class="todds">'+td.odds+'</span><span class="tinst">'+td.inst+'</span></div><div class="tgrid">'+(td.golfers||[]).map(function(g){var isSel=FS.used.has(g.name);return'<div class="gcrd'+(isSel?' sel':'')+'" data-tier="'+tn+'" data-name="'+g.name.replace(/"/g,'&quot;')+'" onclick="togPick('+tn+',\''+g.name.replace(/'/g,"\\'")+'\''+',this)"><div class="gname">'+g.name+'</div></div>';}).join('')+'</div></div>';});
   var tb1val=existingEntry?existingEntry.tb1:'',tb2val=existingEntry?existingEntry.tb2:'';
   h+='<div class="tbsec"><h4>&#127919; Tiebreaker #1 \u2014 Winning Score</h4><p>Guess the winning total to par.</p><input type="number" class="finp" id="tb1" placeholder="e.g. -18" value="'+tb1val+'" style="width:180px"></div><div class="tbsec"><h4>&#9986;&#65039; Tiebreaker #2 \u2014 Cut Line</h4><p>Guess the score where the cut will fall.</p><input type="number" class="finp" id="tb2" placeholder="e.g. +2" value="'+tb2val+'" style="width:180px"></div><div style="text-align:center;padding-top:8px"><button class="btnp" style="font-size:15px;padding:14px 44px" onclick="submitEntry()">'+(isEdit?'Save Changes':'Submit Entry')+' <span class="arr">&#8594;</span></button>'+(isEdit?'<div style="margin-top:10px"><button class="btns" onclick="FS.editingId=null;FS.editingToken=null;renderForm()">Cancel &amp; Start New Entry</button></div>':'<div style="font-size:12px;color:var(--txl);margin-top:12px">&#128279; You\'ll get a link to edit your picks</div>')+'</div>';
   fb.innerHTML=h;
@@ -1200,7 +1207,7 @@ function renderTList(){
   el.innerHTML='<div class="tlist">'+db.tournaments.map(function(t){
     var ac=t.status==='active',ar=t.status==='archived';
     var sc=ac?'s-act':ar?'s-arc':'s-dft',sl=ac?'Active':ar?'Archived':'Draft';
-    return'<div class="titem '+(ac?'act':'')+'"><div style="flex:1"><div class="tname">'+t.name+'</div><div class="tmeta">'+(t.venue||'')+' '+(t.startDate?'\u00b7 '+fmtD(t.startDate):'')+'</div><div class="tmeta">'+t.entries.length+' entries \u00b7 $'+t.buyin+' buy-in</div></div><span class="tsbdg '+sc+'">'+sl+'</span><div class="tacts">'+(!ac&&!ar?'<button class="btnp" style="font-size:12px;padding:7px 16px" onclick="activateT(\''+t.id+'\')">Set Active</button>':'')+(ac?'<span style="font-size:12px;color:var(--bg2);font-weight:700">\u2713 Active</span>':'')+'<button class="btns" style="font-size:12px;padding:6px 14px" onclick="openEditTourn(\''+t.id+'\')">Edit</button>'+((!ar)?'<button class="btnd" onclick="archiveT(\''+t.id+'\')">Archive</button>':'')+'</div></div>';
+    return'<div class="titem '+(ac?'act':'')+'"><div style="flex:1"><div class="tname">'+t.name+'</div><div class="tmeta">'+(t.venue||'')+' '+(t.startDate?'\u00b7 '+fmtD(t.startDate):'')+'</div><div class="tmeta">'+t.entries.length+' entries \u00b7 $'+t.buyin+' buy-in</div></div><span class="tsbdg '+sc+'">'+sl+'</span><div class="tacts">'+(!ac&&!ar?'<button class="btnp" style="font-size:12px;padding:7px 16px" onclick="activateT(\''+t.id+'\')">Set Active</button>':'')+(ac?'<span style="font-size:12px;color:var(--bg2);font-weight:700">\u2713 Active</span>':'')+'<button class="btns" style="font-size:12px;padding:6px 14px" onclick="openEditTourn(\''+t.id+'\')">Edit</button>'+((!ar)?'<button class="btnd" onclick="archiveT(\''+t.id+'\')">Archive</button>':'')+(ar?'<button class="btnd" onclick="deleteT(\''+t.id+'\')">Delete</button>':'')+'</div></div>';
   }).join('')+'</div>';
 }
 
@@ -1241,13 +1248,17 @@ function saveEditTourn(){
 }
 function activateT(id){var db=getDB();db.tournaments.forEach(function(t){if(t.status==='active')t.status='draft';});var t=db.tournaments.find(function(t){return t.id===id;});if(t)t.status='active';saveDB(db);renderTList();refreshSite();startAutoRf();toast('"'+t.name+'" is now active!');}
 function archiveT(id){var db=getDB();var t=db.tournaments.find(function(t){return t.id===id;});if(!t)return;t.status='archived';saveDB(db);renderTList();renderHist();refreshSite();toast('"'+t.name+'" archived.');}
+function deleteT(id){var db=getDB();var t=db.tournaments.find(function(t){return t.id===id;});if(!t)return;if(!confirm('Permanently delete "'+t.name+'"? This cannot be undone.'))return;db.tournaments=db.tournaments.filter(function(x){return x.id!==id;});saveDB(db);renderTList();renderHist();refreshSite();toast('Tournament deleted.');}
 function createTourn(){
   var nm=document.getElementById('tnName').value.trim();if(!nm){toast('Enter a tournament name','\u26a0\ufe0f');return;}
+  var p1=parseInt(document.getElementById('tnP1').value)||60;
+  var p2=parseInt(document.getElementById('tnP2').value)||25;
+  var p3=parseInt(document.getElementById('tnP3').value)||15;
   var db=getDB();
-  db.tournaments.unshift({id:'t_'+Date.now(),name:nm,venue:document.getElementById('tnVenue').value.trim(),startDate:document.getElementById('tnStart').value,endDate:document.getElementById('tnEnd').value,buyin:parseInt(document.getElementById('tnBuyin').value)||50,deadline:document.getElementById('tnDeadline').value,status:'draft',round:'',announcement:'',entries:[],
+  db.tournaments.unshift({id:'t_'+Date.now(),name:nm,venue:document.getElementById('tnVenue').value.trim(),startDate:document.getElementById('tnStart').value,endDate:document.getElementById('tnEnd').value,buyin:parseInt(document.getElementById('tnBuyin').value)||50,deadline:document.getElementById('tnDeadline').value,status:'draft',round:'',announcement:'',payouts:[p1,p2,p3],entries:[],
     tiers:{1:{label:'Tier 1 \u2014 Elite Favorites',odds:'',inst:'Pick 1',limit:1,golfers:[]},2:{label:'Tier 2 \u2014 Contenders',odds:'',inst:'Pick 2',limit:2,golfers:[]},3:{label:'Tier 3 \u2014 Dark Horses',odds:'',inst:'Pick 2',limit:2,golfers:[]},4:{label:'Tier 4 \u2014 Long Shots',odds:'',inst:'Pick 2',limit:2,golfers:[]},5:{label:'Tier 5 \u2014 Biggest Odds',odds:'',inst:'Pick 1',limit:1,golfers:[]}},
     golfers:[],liveConfig:{tournamentId:'',espnUrl:'',interval:3}});
-  saveDB(db);['tnName','tnVenue','tnStart','tnEnd','tnBuyin','tnDeadline'].forEach(function(id){var el=document.getElementById(id);if(el)el.value='';});
+  saveDB(db);['tnName','tnVenue','tnStart','tnEnd','tnBuyin','tnDeadline','tnP1','tnP2','tnP3'].forEach(function(id){var el=document.getElementById(id);if(el){if(id==='tnP1')el.value='60';else if(id==='tnP2')el.value='25';else if(id==='tnP3')el.value='15';else el.value='';}});
   renderTList();toast('"'+nm+'" created as Draft.');
 }
 
@@ -1263,11 +1274,11 @@ function renderTBuilder(){
   document.getElementById('tierTournNm').textContent=t?t.name:'No active tournament';
   if(!t){el.innerHTML='<div class="empty"><p>Activate a tournament first.</p></div>';return;}
   el.innerHTML=Object.entries(t.tiers).map(function(e){var tn=e[0],td=e[1];
-    return'<div style="margin-bottom:20px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span class="trtag">Tier '+tn+'</span><span style="font-size:12px;color:var(--txl)">'+td.label+'</span></div>'+(td.golfers||[]).map(function(g,j){return'<div class="trrow"><input type="text" class="finp" id="t'+tn+'_g'+j+'_n" value="'+g.name.replace(/"/g,'&quot;')+'" style="flex:2" placeholder="Golfer name"><input type="text" class="finp" id="t'+tn+'_g'+j+'_o" value="'+g.odds+'" style="flex:1;max-width:90px" placeholder="Odds"><button class="btni" onclick="rmTG('+tn+','+j+')">&#10005;</button></div>';}).join('')+'<button class="btns" style="font-size:12px;padding:5px 14px;margin-top:6px" onclick="addTG('+tn+')">+ Add Golfer</button></div>';}).join('');
+    return'<div style="margin-bottom:20px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span class="trtag">Tier '+tn+'</span><span style="font-size:12px;color:var(--txl)">'+td.label+'</span></div>'+(td.golfers||[]).map(function(g,j){return'<div class="trrow"><input type="text" class="finp" id="t'+tn+'_g'+j+'_n" value="'+g.name.replace(/"/g,'&quot;')+'" style="flex:2" placeholder="Golfer name"><button class="btni" onclick="rmTG('+tn+','+j+')">&#10005;</button></div>';}).join('')+'<button class="btns" style="font-size:12px;padding:5px 14px;margin-top:6px" onclick="addTG('+tn+')">+ Add Golfer</button></div>';}).join('');
 }
 function addTG(tn){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.tiers[tn].golfers.push({name:'',odds:'',rank:''});saveDB(db);renderTBuilder();}
 function rmTG(tn,j){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.tiers[tn].golfers.splice(j,1);saveDB(db);renderTBuilder();renderForm();}
-function saveTiers(){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];td.golfers.forEach(function(g,j){var ne=document.getElementById('t'+tn+'_g'+j+'_n'),oe=document.getElementById('t'+tn+'_g'+j+'_o');if(ne)g.name=ne.value.trim();if(oe)g.odds=oe.value.trim();});});saveDB(db);renderTBuilder();renderForm();toast('Tiers saved!');}
+function saveTiers(){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];td.golfers.forEach(function(g,j){var ne=document.getElementById('t'+tn+'_g'+j+'_n');if(ne)g.name=ne.value.trim();});});saveDB(db);renderTBuilder();renderForm();toast('Tiers saved!');}
 
 function exportTiersCSV(){
   var t=getActive();
