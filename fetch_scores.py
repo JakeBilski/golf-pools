@@ -25,6 +25,15 @@ status_detail = comp.get('status', {}).get('type', {}).get('detail', '')
 status_name   = comp.get('status', {}).get('type', {}).get('name', '')
 tourn_name    = event.get('name', event.get('shortName', ''))
 
+def detect_round(status):
+    s = status.lower()
+    if '4' in s or 'final' in s: return 'R4'
+    if '3' in s: return 'R3'
+    if '2' in s: return 'R2'
+    return 'R1'
+
+current_round = detect_round(status_detail + ' ' + status_name)
+
 def parse_par(val):
     if val is None or val == '' or val == '--': return None
     s = str(val).strip().upper()
@@ -32,13 +41,6 @@ def parse_par(val):
     if s in ('MC', 'CUT', 'WD', 'DQ'): return 20
     try: return int(s.replace('+', ''))
     except: return None
-
-def detect_round(status):
-    s = status.lower()
-    if '4' in s or 'final' in s: return 'R4'
-    if '3' in s: return 'R3'
-    if '2' in s: return 'R2'
-    return 'R1'
 
 golfers = []
 for c in competitors:
@@ -50,30 +52,43 @@ for c in competitors:
         for name in names:
             for s in stats:
                 if s.get('name') == name or s.get('abbreviation') == name:
-                    return s.get('displayValue', s.get('value'))
+                    v = s.get('displayValue') or s.get('value')
+                    if v is not None and str(v).strip() not in ('', '--'):
+                        return str(v).strip()
         return None
 
     is_cut = c.get('status', '').lower() in ('cut', 'wd', 'dq')
 
+    scored_rounds = [ls for ls in linescores if ls.get('displayValue') not in (None, '', '--', 'E')]
+    num_scored = len(scored_rounds)
+
     thru_raw = find_stat('thru', 'holesPlayed', 'THRU')
 
-    if status_name in ('STATUS_FINAL', 'STATUS_PLAY_COMPLETE') or str(thru_raw) == '18':
+    if status_name in ('STATUS_FINAL', 'STATUS_PLAY_COMPLETE'):
         thru = 'F'
-    elif thru_raw is not None and str(thru_raw).strip() not in ('', '-', '0'):
-        thru = str(thru_raw).strip()
+    elif thru_raw and str(thru_raw) == '18':
+        thru = 'F'
+    elif thru_raw and str(thru_raw).isdigit() and int(thru_raw) > 0:
+        thru = str(thru_raw)
+    elif thru_raw and str(thru_raw).upper() == 'F':
+        thru = 'F'
     else:
-        tee_time = c.get('teeTime', '')
-        if tee_time:
-            try:
-                from datetime import datetime as dt, timezone, timedelta
-                t_obj = dt.fromisoformat(tee_time.replace('Z', '+00:00'))
-                et = timezone(timedelta(hours=-4))
-                t_et = t_obj.astimezone(et)
-                thru = t_et.strftime('%-I:%M %p')
-            except:
-                thru = tee_time
+        round_num = int(current_round[1]) if current_round and len(current_round) > 1 else 1
+        if num_scored >= round_num:
+            thru = 'F'
         else:
-            thru = '-'
+            tee_time = c.get('teeTime', '')
+            if tee_time:
+                try:
+                    from datetime import datetime as dt, timezone, timedelta
+                    t_obj = dt.fromisoformat(tee_time.replace('Z', '+00:00'))
+                    et = timezone(timedelta(hours=-4))
+                    t_et = t_obj.astimezone(et)
+                    thru = t_et.strftime('%-I:%M %p')
+                except:
+                    thru = tee_time
+            else:
+                thru = '-'
 
     rounds = [parse_par(ls.get('displayValue', ls.get('value'))) for ls in linescores[:4]]
     while len(rounds) < 4:
@@ -105,7 +120,7 @@ result = {
     'tournamentId':   tournament_id,
     'tournamentName': tourn_name,
     'status':         status_detail,
-    'round':          detect_round(status_detail + ' ' + status_name),
+    'round':          current_round,
     'lastUpdated':    ts,
     'golfers':        active + cut
 }
