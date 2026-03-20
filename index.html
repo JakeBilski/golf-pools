@@ -343,7 +343,14 @@ input,textarea,select{font-family:'Inter',sans-serif}
     <div id="adminDash" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px">
         <div class="stitle" style="margin:0">Admin Dashboard</div>
-        <button class="btns" onclick="adminOut()">Sign Out</button>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btnp" style="font-size:13px;padding:10px 22px;background:#d4a017" onclick="publishToWorker()">&#128640; Publish to All Devices</button>
+          <span id="publishStatus" style="font-size:11px;color:var(--txl)"></span>
+          <button class="btns" onclick="adminOut()">Sign Out</button>
+        </div>
+      </div>
+      <div class="snote" id="publishNote" style="background:rgba(212,160,23,.08);border-color:rgba(212,160,23,.25);margin-bottom:20px">
+        <strong style="color:#7a5c10">&#9888;&#65039; Remember to Publish!</strong> Changes you make here are local to this browser. Hit <strong>Publish to All Devices</strong> after making changes so everyone sees them.
       </div>
       <div class="agrid">
         <div class="acrd" onclick="openPanel('tourn')"><div class="atop"></div><div class="abody"><div class="aico">&#127942;</div><div class="atit">Tournaments</div><div class="adsc">Create, activate, and archive tournaments</div></div></div>
@@ -1365,17 +1372,110 @@ function applyNameRemap() {
   toast('Renamed "' + oldName + '" to "' + newName + '" in ' + count + ' pick' + (count !== 1 ? 's' : '') + '!');
 }
 
+// ── Publish all admin data to Cloudflare Worker for all devices ──
+async function publishToWorker() {
+  var db = getDB();
+  var t = db.tournaments.find(function(x){ return x.status === 'active'; });
+  if (!t) { toast('No active tournament to publish', '\u26a0\ufe0f'); return; }
+
+  var statusEl = document.getElementById('publishStatus');
+  if (statusEl) statusEl.textContent = 'Publishing\u2026';
+
+  // Build the config payload — everything visitors need
+  var payload = {
+    tournament: {
+      id: t.id,
+      name: t.name,
+      venue: t.venue,
+      startDate: t.startDate,
+      endDate: t.endDate,
+      buyin: t.buyin,
+      deadline: t.deadline,
+      status: t.status,
+      round: t.round,
+      announcement: t.announcement,
+      payouts: t.payouts || [60, 25, 15],
+      entries: t.entries,
+      tiers: t.tiers,
+      golfers: t.golfers,
+      liveConfig: t.liveConfig || {}
+    },
+    theme: db.theme || null,
+    publishedAt: new Date().toISOString()
+  };
+
+  try {
+    var res = await fetch(WORKER_URL + '/config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    var data = await res.json();
+    if (statusEl) statusEl.textContent = 'Published ' + new Date().toLocaleTimeString('en-US', {hour:'numeric', minute:'2-digit'});
+    toast('Published to all devices!', '\ud83d\ude80');
+  } catch(err) {
+    if (statusEl) statusEl.textContent = 'Failed!';
+    toast('Publish failed: ' + err.message, '\u274c');
+  }
+}
+
+// ── Load published config from Worker (runs on every page load for all visitors) ──
+async function loadPublishedConfig() {
+  try {
+    var res = await fetch(WORKER_URL + '/config?t=' + Date.now());
+    if (!res.ok) return;
+    var data = await res.json();
+    if (!data || !data.tournament || data.error) return;
+
+    var db = getDB();
+    var t = data.tournament;
+
+    // Find or create the tournament in local DB
+    var existing = db.tournaments.find(function(x){ return x.id === t.id; });
+    if (existing) {
+      // Update everything from published config
+      existing.name = t.name;
+      existing.venue = t.venue;
+      existing.startDate = t.startDate;
+      existing.endDate = t.endDate;
+      existing.buyin = t.buyin;
+      existing.deadline = t.deadline;
+      existing.status = t.status;
+      existing.round = t.round;
+      existing.announcement = t.announcement;
+      existing.payouts = t.payouts;
+      existing.entries = t.entries;
+      existing.tiers = t.tiers;
+      if (t.golfers && t.golfers.length) existing.golfers = t.golfers;
+      existing.liveConfig = t.liveConfig;
+    } else {
+      // Add as new tournament
+      t.status = 'active';
+      db.tournaments.unshift(t);
+    }
+
+    // Apply theme if published
+    if (data.theme) {
+      db.theme = data.theme;
+    }
+
+    saveDB(db);
+    loadSavedTheme();
+    refreshSite();
+  } catch(err) {
+    console.warn('Could not load published config:', err.message);
+  }
+}
+
 function refreshSite(){renderHero();renderHome();renderRules();renderHist();}
 if(!localStorage.getItem(SK))saveDB(defDB());
 loadSavedTheme();
 refreshSite();renderRules();renderHist();startAutoRf();
 checkEditToken();
-// Auto-fetch on page load only if auto-refresh is enabled in admin
-(function(){
-  var t = getActive();
-  var interval = (t && t.liveConfig && t.liveConfig.interval) ? parseInt(t.liveConfig.interval) : 0;
-  if (interval > 0) triggerRefresh(true);
-})();
+// Load published config from Worker, then fetch live scores
+loadPublishedConfig().then(function(){
+  triggerRefresh(true);
+});
 </script>
 </body>
 </html>
