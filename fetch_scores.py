@@ -53,9 +53,27 @@ for c in competitors:
                     return s.get('displayValue', s.get('value'))
         return None
 
-    is_cut = c.get('status', '').lower() == 'cut'
-    thru = find_stat('thru', 'holesPlayed', 'THRU') or c.get('status', '-')
-    if str(thru) == '18' or status_name == 'STATUS_FINAL': thru = 'F'
+    is_cut = c.get('status', '').lower() in ('cut', 'wd', 'dq')
+
+    thru_raw = find_stat('thru', 'holesPlayed', 'THRU')
+
+    if status_name in ('STATUS_FINAL', 'STATUS_PLAY_COMPLETE') or str(thru_raw) == '18':
+        thru = 'F'
+    elif thru_raw is not None and str(thru_raw).strip() not in ('', '-', '0'):
+        thru = str(thru_raw).strip()
+    else:
+        tee_time = c.get('teeTime', '')
+        if tee_time:
+            try:
+                from datetime import datetime as dt, timezone, timedelta
+                t_obj = dt.fromisoformat(tee_time.replace('Z', '+00:00'))
+                et = timezone(timedelta(hours=-4))
+                t_et = t_obj.astimezone(et)
+                thru = t_et.strftime('%-I:%M %p')
+            except:
+                thru = tee_time
+        else:
+            thru = '-'
 
     rounds = [parse_par(ls.get('displayValue', ls.get('value'))) for ls in linescores[:4]]
     while len(rounds) < 4:
@@ -72,7 +90,7 @@ for c in competitors:
         'flag':  '',
         'score': parse_par(find_stat('scoreToPar', 'TOT') or c.get('score')),
         'today': parse_par(find_stat('roundScore', 'TODAY', 'RD')),
-        'thru':  str(thru),
+        'thru':  thru,
         'r':     rounds
     })
 
