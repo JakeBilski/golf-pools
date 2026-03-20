@@ -949,10 +949,12 @@ var rfTimer = null;
 
 async function fetchLiveScores() {
   try {
-    var res = await fetch('/scores.json?t=' + Date.now());
+    // Works both locally and on GitHub Pages /golf-pools/
+    var base = window.location.pathname.replace(/\/[^/]*$/, '/');
+    var res = await fetch(base + 'scores.json?t=' + Date.now());
     if (!res.ok) throw new Error('HTTP ' + res.status);
     var data = await res.json();
-    if (data.error) throw new Error(data.error);
+    if (data.error && !data.golfers.length) throw new Error(data.error);
     return data;
   } catch(err) {
     console.warn('scores.json error:', err.message);
@@ -960,9 +962,9 @@ async function fetchLiveScores() {
   }
 }
 
-async function triggerRefresh() {
+async function triggerRefresh(silent) {
   var t = getActive();
-  if (!t) { toast('No active tournament', '\u26a0\ufe0f'); return; }
+  if (!t) { if(!silent) toast('No active tournament', '\u26a0\ufe0f'); return; }
   document.getElementById('liveStatus').textContent = 'Updating\u2026';
   var data = await fetchLiveScores();
   if (data && data.golfers && data.golfers.length > 0) {
@@ -981,9 +983,9 @@ async function triggerRefresh() {
       db.liveLastUpdated = data.lastUpdated || new Date().toISOString();
       saveDB(db);
     }
-    toast('Scores updated!', '\u26f3');
+    if(!silent) toast('Scores updated!', '\u26f3');
   } else {
-    toast('No scores yet \u2014 check GitHub Actions in your repo', '\u26a0\ufe0f');
+    if(!silent) toast('No scores yet \u2014 check GitHub Actions in your repo', '\u26a0\ufe0f');
   }
   document.getElementById('liveStatus').textContent = 'Live';
   var upd = getDB().liveLastUpdated;
@@ -1494,6 +1496,8 @@ if(!localStorage.getItem(SK))saveDB(defDB());
 loadSavedTheme();
 refreshSite();renderRules();renderHist();startAutoRf();
 checkEditToken();
+// Auto-fetch live scores on every page load
+triggerRefresh(true);
 </script>
 </body>
 </html>
