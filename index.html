@@ -945,15 +945,21 @@ function submitEntry(){
   if(!p[5])miss.push('Tier 5');
   if(miss.length){toast('Still needed: '+miss[0],'\u26a0\ufe0f');return;}
   var db=getDB(),t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;
+
+  var picks={T1:p[1],T2a:p[2][0],T2b:p[2][1],T3a:p[3][0],T3b:p[3][1],T4a:p[4][0],T4b:p[4][1],T5:p[5]};
+  var tb1=parseInt(document.getElementById('tb1')?document.getElementById('tb1').value:0)||0;
+  var tb2=parseInt(document.getElementById('tb2')?document.getElementById('tb2').value:0)||0;
+
   if(FS.editingId){
     var idx=t.entries.findIndex(function(e){return e.id===FS.editingId;});
     if(idx>-1){
       var existing2=t.entries[idx];
       existing2.name=nm;existing2.email=em;
-      existing2.picks={T1:p[1],T2a:p[2][0],T2b:p[2][1],T3a:p[3][0],T3b:p[3][1],T4a:p[4][0],T4b:p[4][1],T5:p[5]};
-      existing2.tb1=parseInt(document.getElementById('tb1')?document.getElementById('tb1').value:0)||0;
-      existing2.tb2=parseInt(document.getElementById('tb2')?document.getElementById('tb2').value:0)||0;
+      existing2.picks=picks;
+      existing2.tb1=tb1;existing2.tb2=tb2;
       saveDB(db);
+      // Sync to Worker
+      syncEntryToWorker(existing2);
       document.getElementById('confEmail').textContent=em;
       var editUrl2=window.location.origin+window.location.pathname+'?edit='+existing2.editToken;
       document.getElementById('confEditLink').href=editUrl2;
@@ -966,11 +972,10 @@ function submitEntry(){
   }
   var entry={id:'e_'+Date.now(),name:nm,email:em,
     editToken:'tok_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2),
-    picks:{T1:p[1],T2a:p[2][0],T2b:p[2][1],T3a:p[3][0],T3b:p[3][1],T4a:p[4][0],T4b:p[4][1],T5:p[5]},
-    tb1:parseInt(document.getElementById('tb1')?document.getElementById('tb1').value:0)||0,
-    tb2:parseInt(document.getElementById('tb2')?document.getElementById('tb2').value:0)||0,
-    score:0,r:['','','','']};
+    picks:picks,tb1:tb1,tb2:tb2,score:0,r:['','','','']};
   t.entries.push(entry);saveDB(db);
+  // Sync to Worker
+  syncEntryToWorker(entry);
   document.getElementById('confEmail').textContent=em;
   var editUrl=window.location.origin+window.location.pathname+'?edit='+entry.editToken;
   document.getElementById('confEditLink').href=editUrl;
@@ -980,6 +985,19 @@ function submitEntry(){
   document.getElementById('confLineup').innerHTML=list.map(function(x){return'<div class="eprow"><span class="etier">'+x.t+'</span><span class="ename">'+x.n+'</span></div>';}).join('');
   document.getElementById('frmView').style.display='none';document.getElementById('confView').style.display='block';
   refreshSite();toast('Entry submitted! Welcome, '+nm+'!');
+}
+
+// Sync a single entry to the Cloudflare Worker
+function syncEntryToWorker(entry) {
+  fetch(WORKER_URL + '/entry', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(entry)
+  }).then(function(res){ return res.json(); }).then(function(data){
+    console.log('Entry synced to Worker:', data);
+  }).catch(function(err){
+    console.warn('Failed to sync entry to Worker:', err.message);
+  });
 }
 function editEntry(){
   var token=null;
@@ -1270,7 +1288,10 @@ function renderAEntries(){
   if(!t||!t.entries.length){document.getElementById('adminEntries').innerHTML='<tr><td colspan="13"><div class="empty" style="padding:16px"><p>No entries yet.</p></div></td></tr>';return;}
   document.getElementById('adminEntries').innerHTML=t.entries.map(function(e){return'<tr><td>'+e.name+'</td><td style="font-size:11px;color:var(--txl)">'+e.email+'</td><td>'+(e.picks.T1||'\u2014')+'</td><td>'+(e.picks.T2a||'\u2014')+'</td><td>'+(e.picks.T2b||'\u2014')+'</td><td>'+(e.picks.T3a||'\u2014')+'</td><td>'+(e.picks.T3b||'\u2014')+'</td><td>'+(e.picks.T4a||'\u2014')+'</td><td>'+(e.picks.T4b||'\u2014')+'</td><td>'+(e.picks.T5||'\u2014')+'</td><td>'+(e.tb1!==undefined?e.tb1:'')+'</td><td>'+(e.tb2!==undefined?e.tb2:'')+'</td><td><button class="btni" onclick="delEntry(\''+e.id+'\')">&#128465;&#65039;</button></td></tr>';}).join('');
 }
-function delEntry(id){if(!confirm('Delete this entry?'))return;var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.entries=t.entries.filter(function(e){return e.id!==id;});saveDB(db);renderAEntries();refreshSite();toast('Entry deleted.');}
+function delEntry(id){if(!confirm('Delete this entry?'))return;var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.entries=t.entries.filter(function(e){return e.id!==id;});saveDB(db);renderAEntries();refreshSite();toast('Entry deleted.');
+  // Sync deletion to Worker
+  fetch(WORKER_URL+'/entry/'+id,{method:'DELETE'}).catch(function(err){console.warn('Failed to delete from Worker:',err);});
+}
 
 function renderTBuilder(){
   var t=getActive(),el=document.getElementById('tierBuilderEl');
