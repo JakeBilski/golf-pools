@@ -398,16 +398,14 @@ input,textarea,select{font-family:'Inter',sans-serif}
         <div class="pbody">
           <div style="font-size:13px;color:var(--txl);margin-bottom:12px">Editing tiers for: <strong id="tierTournNm" style="color:var(--txt)">&#8212;</strong></div>
           <div class="snote" style="margin-bottom:16px">
-            <strong style="color:var(--bg);display:block;margin-bottom:6px">&#128196; Three ways to import golfers</strong>
-            <strong>Option A — Paste:</strong> Select all cells in your Google Sheet or Excel, copy (Ctrl+C), click <strong>Paste from Spreadsheet</strong>, and paste. Easiest for 100+ golfers.<br><br>
-            <strong>Option B — CSV file:</strong> Click <strong>Download Template</strong>, fill it in Excel/Sheets, save as CSV, then <strong>Import CSV</strong>.<br><br>
-            <strong>Option C — Manual:</strong> Click + Add Golfer per tier below.<br><br>
-            <span style="color:var(--txl);font-size:12px">Required columns: <strong>Tier (1-5)</strong> and <strong>Golfer Name</strong>. Odds and ranking are optional.</span>
+            <strong style="color:var(--bg);display:block;margin-bottom:6px">&#128196; Import golfers</strong>
+            Paste or upload a list with two columns: <strong>Tier (1-5)</strong> and <strong>Golfer Name</strong>. That's it.<br><br>
+            <span style="color:var(--txl);font-size:12px">Works with copy/paste from Excel or Google Sheets, or a CSV file. Header row is auto-skipped.</span>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px">
-            <button class="btns" onclick="exportTiersCSV()">&#8681; Download Template</button>
-            <label class="btns" style="cursor:pointer">&#8679; Import CSV<input type="file" accept=".csv,.tsv,.txt" style="display:none" onchange="importTiersCSV(this)"></label>
             <button class="btns" onclick="openPasteImport()">&#128203; Paste from Spreadsheet</button>
+            <label class="btns" style="cursor:pointer">&#8679; Upload CSV<input type="file" accept=".csv,.tsv,.txt" style="display:none" onchange="importTiersCSV(this)"></label>
+            <button class="btns" onclick="exportTiersCSV()">&#8681; Download Template</button>
           </div>
           <div id="tierBuilderEl"></div>
           <button class="btnp" onclick="saveTiers()">Save All Tiers <span class="arr">&#8594;</span></button>
@@ -1208,6 +1206,11 @@ function openEditTourn(id){
     +'<div class="frow"><div class="fgrp"><label class="flbl">Buy-in ($)</label><input type="number" class="finp" id="etBuyin"></div><div class="fgrp"><label class="flbl">Entry Deadline</label><input type="datetime-local" class="finp" id="etDeadline"></div></div>'
     +'<div class="fgrp"><label class="flbl">Current Round</label><select class="finp" id="etRound"><option value="">Not started</option><option value="R1">Round 1</option><option value="R2">Round 2</option><option value="R3">Round 3</option><option value="R4">Round 4 / Final</option></select></div>'
     +'<hr class="divider">'
+    +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#127919; Auto-Generate Tiers from Odds</div>'
+    +'<div class="fgrp"><label class="flbl">Paste DraftKings Outright Winner Odds</label><textarea class="finp" rows="6" style="resize:vertical;font-family:monospace;font-size:12px" id="etOddsPaste" placeholder="Paste from DraftKings here...\n\nExample:\nScottie Scheffler +500\nRory McIlroy +800\nXander Schauffele +1200"></textarea><div style="font-size:11px;color:var(--txl);margin-top:5px">Go to DraftKings &rarr; Golf &rarr; Outright Winner. Select all the names/odds and paste here. Tiers are auto-generated based on odds.</div></div>'
+    +'<button class="btns" style="margin-bottom:14px" onclick="generateTiersFromOdds()">&#9881; Generate Tiers from Odds</button>'
+    +'<div id="oddsPreview" style="margin-bottom:14px"></div>'
+    +'<hr class="divider">'
     +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#128640; Live Scoring</div>'
     +'<div class="fgrp"><label class="flbl">ESPN Tournament ID <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--txl)">(add when available)</span></label><input type="text" class="finp" id="etEspnId" placeholder="e.g. 401811938"><div style="font-size:11px;color:var(--txl);margin-top:5px">Find at espn.com/golf/leaderboard. Leave blank if not available yet.</div></div>'
     +'<div class="fgrp"><label class="flbl">Auto-Refresh Interval</label><select class="finp" id="etInterval"><option value="5">Every 5 minutes</option><option value="10">Every 10 minutes</option><option value="0">Manual only</option></select></div>'
@@ -1286,6 +1289,140 @@ function renderTBuilder(){
 function addTG(tn){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.tiers[tn].golfers.push({name:'',odds:'',rank:''});saveDB(db);renderTBuilder();}
 function rmTG(tn,j){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.tiers[tn].golfers.splice(j,1);saveDB(db);renderTBuilder();renderForm();}
 function saveTiers(){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];td.golfers.forEach(function(g,j){var ne=document.getElementById('t'+tn+'_g'+j+'_n');if(ne)g.name=ne.value.trim();});});saveDB(db);renderTBuilder();renderForm();toast('Tiers saved!');}
+
+// ── Auto-generate tiers from DraftKings odds paste ──
+function generateTiersFromOdds(){
+  var raw=document.getElementById('etOddsPaste');
+  if(!raw||!raw.value.trim()){toast('Paste the DraftKings odds first','\u26a0\ufe0f');return;}
+  var text=raw.value.trim();
+  var previewEl=document.getElementById('oddsPreview');
+
+  // Parse odds — handle various DraftKings paste formats
+  // Formats: "Scottie Scheffler +500", "Scottie Scheffler\t+500", "Scottie Scheffler 500"
+  var lines=text.replace(/\r\n/g,'\n').replace(/\r/g,'\n').split('\n');
+  var players=[];
+  for(var i=0;i<lines.length;i++){
+    var line=lines[i].trim();
+    if(!line)continue;
+    // Skip header-like lines
+    if(/^(player|name|golfer|outright|winner|odds)/i.test(line))continue;
+    if(/^(bet|wager|stake)/i.test(line))continue;
+
+    // Try to extract name and odds
+    var name='',odds=0;
+
+    // Pattern 1: "Name +500" or "Name\t+500"
+    var match=line.match(/^(.+?)\s+([+-]?\d{3,6})\s*$/);
+    if(match){
+      name=match[1].trim();
+      odds=parseInt(match[2].replace('+',''));
+    }
+    // Pattern 2: Tab-separated "Name\t+500"
+    if(!name&&line.indexOf('\t')>-1){
+      var parts=line.split('\t').map(function(s){return s.trim();});
+      for(var j=0;j<parts.length;j++){
+        if(/^[+-]?\d{3,6}$/.test(parts[j])){
+          odds=parseInt(parts[j].replace('+',''));
+          // Name is everything before this column
+          name=parts.slice(0,j).filter(function(p){return p&&!/^[+-]?\d+$/.test(p);}).join(' ').trim();
+          break;
+        }
+      }
+    }
+    // Pattern 3: Just a name with odds on the next line
+    if(!name&&!/\d{3,}/.test(line)&&i+1<lines.length){
+      var nextLine=lines[i+1]?lines[i+1].trim():'';
+      if(/^[+-]?\d{3,6}$/.test(nextLine)){
+        name=line;
+        odds=parseInt(nextLine.replace('+',''));
+        i++; // skip the odds line
+      }
+    }
+
+    // Clean up name — remove common DraftKings artifacts
+    if(name){
+      name=name.replace(/\s*(Outright|Winner|To Win|Odds|Bet|More|Less)\s*$/i,'').trim();
+      name=name.replace(/^\d+\.\s*/,'').trim(); // remove leading numbers like "1. "
+      name=name.replace(/\s+/g,' '); // collapse whitespace
+      if(name.length>2&&odds>0){
+        players.push({name:name,odds:odds});
+      }
+    }
+  }
+
+  if(!players.length){
+    if(previewEl)previewEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c Could not find any player/odds pairs. Make sure you\'re pasting names with odds like:<br><br><code>Scottie Scheffler +500<br>Rory McIlroy +800</code></div>';
+    return;
+  }
+
+  // Sort by odds (best to worst)
+  players.sort(function(a,b){return a.odds-b.odds;});
+
+  // ── Tier assignment based on rules ──
+  // Tier 5: +10000 and worse
+  // Tier 1: minimum 2, fewest players, best odds
+  // Tier 2 & 3: roughly equal
+  // Tier 4: larger than 2 and 3
+  var tier5=[],rest=[];
+  players.forEach(function(p){
+    if(p.odds>=10000)tier5.push(p);
+    else rest.push(p);
+  });
+
+  // Distribute rest into tiers 1-4
+  var total=rest.length;
+  // Tier 1: ~8% of players, minimum 2, max ~6
+  var t1Count=Math.max(2,Math.min(6,Math.round(total*0.08)));
+  // Tier 4: ~35% of remaining
+  var remaining=total-t1Count;
+  var t4Count=Math.max(3,Math.round(remaining*0.40));
+  // Tier 2 and 3: split the rest roughly equally
+  var t23=remaining-t4Count;
+  var t2Count=Math.ceil(t23/2);
+  var t3Count=t23-t2Count;
+
+  // Make sure we have at least some players in each tier
+  if(t2Count<2){t2Count=2;t3Count=Math.max(2,t23-2);}
+  if(t3Count<2){t3Count=2;}
+
+  var tier1=rest.slice(0,t1Count);
+  var tier2=rest.slice(t1Count,t1Count+t2Count);
+  var tier3=rest.slice(t1Count+t2Count,t1Count+t2Count+t3Count);
+  var tier4=rest.slice(t1Count+t2Count+t3Count);
+
+  // If tier5 is empty and tier4 has a lot, move the worst ones to tier5
+  if(!tier5.length&&tier4.length>8){
+    var split=Math.ceil(tier4.length*0.4);
+    tier5=tier4.slice(split);
+    tier4=tier4.slice(0,split);
+  }
+
+  // Build the tiers object
+  var id=document.getElementById('etId').value;
+  var db=getDB();
+  var t=db.tournaments.find(function(x){return x.id===id;});
+  if(!t){toast('Tournament not found','\u274c');return;}
+
+  function buildGolfers(arr){return arr.map(function(p){return{name:p.name,odds:'+'+p.odds,rank:''};});}
+  function oddsRange(arr){if(!arr.length)return '';return '+'+arr[0].odds+'\u2013+'+arr[arr.length-1].odds;}
+
+  t.tiers[1]={label:'Tier 1 \u2014 Elite Favorites',odds:oddsRange(tier1),inst:'Pick 1',limit:1,golfers:buildGolfers(tier1)};
+  t.tiers[2]={label:'Tier 2 \u2014 Contenders',odds:oddsRange(tier2),inst:'Pick 2',limit:2,golfers:buildGolfers(tier2)};
+  t.tiers[3]={label:'Tier 3 \u2014 Dark Horses',odds:oddsRange(tier3),inst:'Pick 2',limit:2,golfers:buildGolfers(tier3)};
+  t.tiers[4]={label:'Tier 4 \u2014 Long Shots',odds:oddsRange(tier4),inst:'Pick 2',limit:2,golfers:buildGolfers(tier4)};
+  t.tiers[5]={label:'Tier 5 \u2014 Longest Odds',odds:oddsRange(tier5),inst:'Pick 1',limit:1,golfers:buildGolfers(tier5)};
+  saveDB(db);
+
+  // Show preview
+  var summary='<div class="snote" style="color:#1a6e3a"><strong>\u2705 Generated '+players.length+' players into 5 tiers</strong><br><br>';
+  [{n:'Tier 1',a:tier1},{n:'Tier 2',a:tier2},{n:'Tier 3',a:tier3},{n:'Tier 4',a:tier4},{n:'Tier 5',a:tier5}].forEach(function(x){
+    summary+='<strong>'+x.n+'</strong> ('+x.a.length+' players): '+x.a.map(function(p){return p.name;}).slice(0,5).join(', ')+(x.a.length>5?' + '+(x.a.length-5)+' more':'')+'<br>';
+  });
+  summary+='<br><span style="font-size:11px;color:var(--txl)">Close this modal and open <strong>Manage Tiers</strong> to review and edit.</span></div>';
+  if(previewEl)previewEl.innerHTML=summary;
+
+  toast('Tiers generated from '+players.length+' players!','\u2705');
+}
 
 function exportTiersCSV(){
   var t=getActive();
