@@ -436,28 +436,16 @@ input,textarea,select{font-family:'Inter',sans-serif}
         <div class="phead"><h3>Live Scoring Setup</h3><button class="pclose" onclick="closePanel('live')">&#10005;</button></div>
         <div class="pbody">
           <div class="snote">
-            <strong style="color:var(--bg);display:block;margin-bottom:8px">&#128640; Cloudflare Worker — Free, Reliable, Every 5 Minutes</strong>
-            Your Cloudflare Worker fetches ESPN scores on a precise cron schedule and caches them. This site reads directly from your Worker URL — no GitHub Actions needed.<br><br>
-            <strong>How it works:</strong><br>
-            1. Deploy the Worker script to Cloudflare (free tier = 100k requests/day)<br>
-            2. Paste your Worker URL below<br>
-            3. Toggle scoring on/off by hitting <code>your-worker-url/toggle/on</code> or <code>/toggle/off</code><br>
-            4. The Worker cron runs every 5 min — when off, it skips and costs nothing<br><br>
-            <strong>To find the ESPN tournament ID:</strong> Go to espn.com/golf/leaderboard — the number at the end of the URL is the ID.<br>
-            <em style="color:var(--txl);font-size:12px">Example: espn.com/golf/leaderboard/_/tournamentId/<strong>401811938</strong></em>
-          </div>
-          <div class="fgrp">
-            <label class="flbl">Cloudflare Worker URL</label>
-            <input type="text" class="finp" id="workerUrl" placeholder="e.g. https://golf-scores.your-name.workers.dev">
-            <div style="font-size:11px;color:var(--txl);margin-top:5px">Your Worker URL. Scores are fetched from <code>/scores</code> endpoint.</div>
+            <strong style="color:var(--bg);display:block;margin-bottom:8px">&#128640; How Live Scoring Works</strong>
+            Your Cloudflare Worker fetches ESPN scores every 5 minutes automatically. Just enter the tournament ID below and toggle scoring on — everything else is handled for you.
           </div>
           <div class="fgrp">
             <label class="flbl">ESPN Tournament ID</label>
             <input type="text" class="finp" id="espnTournId" placeholder="e.g. 401811938">
-            <div style="font-size:11px;color:var(--txl);margin-top:5px">Set this in your Worker via <code>/tournament/401811938</code></div>
+            <div style="font-size:11px;color:var(--txl);margin-top:5px">Go to <strong>espn.com/golf/leaderboard</strong>, click your tournament — the number at the end of the URL is the ID.</div>
           </div>
           <div class="fgrp">
-            <label class="flbl">Display Refresh (how often the page checks for new scores)</label>
+            <label class="flbl">Auto-Refresh (how often the page checks for new scores)</label>
             <select class="finp" id="apiInt">
               <option value="5">Every 5 minutes</option>
               <option value="10">Every 10 minutes</option>
@@ -465,7 +453,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
             </select>
           </div>
           <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
-            <button class="btnp" onclick="saveLiveCfg()">Save <span class="arr">&#8594;</span></button>
+            <button class="btnp" onclick="saveLiveCfg()">Save &amp; Sync <span class="arr">&#8594;</span></button>
             <button class="btns" onclick="testEspnConnection()">Test &amp; Preview</button>
           </div>
           <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
@@ -1064,15 +1052,9 @@ var WORKER_URL = 'https://golf-scores.bilskijake.workers.dev';
 
 async function fetchLiveScores() {
   // Try Cloudflare Worker first, fall back to local scores.json
-  var workerUrl = WORKER_URL;
-  // Also check admin override if set
-  var t = getActive();
-  if (t && t.liveConfig && t.liveConfig.workerUrl) {
-    workerUrl = t.liveConfig.workerUrl.replace(/\/+$/, '');
-  }
-  if (workerUrl) {
+  if (WORKER_URL) {
     try {
-      var res = await fetch(workerUrl + '/scores?t=' + Date.now());
+      var res = await fetch(WORKER_URL + '/scores?t=' + Date.now());
       if (res.ok) {
         var data = await res.json();
         if (data && data.golfers && data.golfers.length > 0) return data;
@@ -1162,38 +1144,45 @@ function startAutoRf() {
 function renderLiveCfg() {
   var t = getActive(); if (!t) return;
   var cfg = t.liveConfig || {};
-  var wu = document.getElementById('workerUrl');
   var ti = document.getElementById('espnTournId');
   var ai = document.getElementById('apiInt');
-  if (wu) wu.value = cfg.workerUrl || '';
   if (ti) ti.value = cfg.tournamentId || '';
   if (ai) ai.value = cfg.interval || 5;
+  // Auto-check worker status when panel opens
+  checkWorkerStatus();
 }
 
-function saveLiveCfg() {
+async function saveLiveCfg() {
   var db = getDB();
   var t = db.tournaments.find(function(t){ return t.status === 'active'; });
   if (!t) { toast('No active tournament', '\u26a0\ufe0f'); return; }
-  var wuEl  = document.getElementById('workerUrl');
   var tidEl = document.getElementById('espnTournId');
   var aiEl  = document.getElementById('apiInt');
+  var tid = tidEl ? tidEl.value.trim() : '';
   t.liveConfig = {
-    workerUrl: wuEl ? wuEl.value.trim() : '',
-    tournamentId: tidEl ? tidEl.value.trim() : '',
+    tournamentId: tid,
     interval: parseInt(aiEl ? aiEl.value : 5) || 5
   };
   saveDB(db); startAutoRf();
-  toast('Live scoring config saved!');
+
+  // Auto-sync tournament ID to the Worker
+  if (tid) {
+    try {
+      var res = await fetch(WORKER_URL + '/tournament/' + tid);
+      var data = await res.json();
+      toast('Saved! Tournament ID synced to Worker.', '\u2705');
+    } catch(err) {
+      toast('Saved locally, but failed to sync to Worker: ' + err.message, '\u26a0\ufe0f');
+    }
+  } else {
+    toast('Saved! Enter a tournament ID to start fetching scores.', '\u26a0\ufe0f');
+  }
 }
 
 async function toggleWorker(state) {
-  var t = getActive();
-  var workerUrl = WORKER_URL;
-  if (t && t.liveConfig && t.liveConfig.workerUrl) workerUrl = t.liveConfig.workerUrl.replace(/\/+$/, '');
-  if (!workerUrl) { toast('Set your Worker URL first', '\u26a0\ufe0f'); return; }
   var resultEl = document.getElementById('testResult');
   try {
-    var res = await fetch(workerUrl + '/toggle/' + state);
+    var res = await fetch(WORKER_URL + '/toggle/' + state);
     var data = await res.json();
     if (resultEl) resultEl.innerHTML = '<div class="snote" style="color:' + (state==='on'?'#1a6e3a':'var(--red)') + '"><strong>' + (state==='on'?'\u2705 Scoring is ON':'&#9940; Scoring is OFF') + '</strong> — ' + (data.message || JSON.stringify(data)) + '</div>';
     toast('Scoring toggled ' + state + '!');
@@ -1203,13 +1192,9 @@ async function toggleWorker(state) {
 }
 
 async function checkWorkerStatus() {
-  var t = getActive();
-  var workerUrl = WORKER_URL;
-  if (t && t.liveConfig && t.liveConfig.workerUrl) workerUrl = t.liveConfig.workerUrl.replace(/\/+$/, '');
-  if (!workerUrl) { toast('Set your Worker URL first', '\u26a0\ufe0f'); return; }
   var resultEl = document.getElementById('testResult');
   try {
-    var res = await fetch(workerUrl + '/status');
+    var res = await fetch(WORKER_URL + '/status');
     var data = await res.json();
     if (resultEl) resultEl.innerHTML = '<div class="snote"><strong>\u2139\ufe0f Worker Status</strong><br>Scoring: <strong>' + (data.enabled ? 'ON' : 'OFF') + '</strong><br>Tournament ID: <strong>' + (data.tournamentId || 'not set') + '</strong><br>Last updated: <strong>' + (data.lastUpdated || 'never') + '</strong><br>Golfers cached: <strong>' + (data.golferCount || 0) + '</strong></div>';
   } catch(err) {
