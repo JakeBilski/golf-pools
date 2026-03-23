@@ -1168,9 +1168,19 @@ async function saveLiveCfg() {
   // Auto-sync tournament ID to the Worker
   if (tid) {
     try {
-      var res = await fetch(WORKER_URL + '/tournament/' + tid);
-      var data = await res.json();
-      toast('Saved! Tournament ID synced to Worker.', '\u2705');
+      // Step 1: Set the tournament ID on the Worker
+      await fetch(WORKER_URL + '/tournament/' + tid);
+      // Step 2: Force the Worker to fetch fresh scores for this tournament NOW
+      toast('Syncing tournament ID and fetching scores\u2026', '\u231b');
+      var refreshRes = await fetch(WORKER_URL + '/refresh');
+      var refreshData = await refreshRes.json();
+      if (refreshData.success) {
+        toast('Saved! New scores loaded (' + refreshData.golfers + ' golfers).', '\u2705');
+        // Step 3: Pull the fresh scores into the page
+        await triggerRefresh(true);
+      } else {
+        toast('Tournament ID saved but fetch failed: ' + (refreshData.error || 'unknown error'), '\u26a0\ufe0f');
+      }
     } catch(err) {
       toast('Saved locally, but failed to sync to Worker: ' + err.message, '\u26a0\ufe0f');
     }
