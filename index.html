@@ -893,7 +893,7 @@ function renderForm(editingId){
     if(pk.T5){FS.picks[5]=pk.T5;FS.used.add(pk.T5);}
   }
   var h='<div class="frow"><div class="fgrp"><label class="flbl">Full Name *</label><input type="text" class="finp" id="entName" placeholder="John Smith" value="'+(existingEntry?existingEntry.name.replace(/"/g,'&quot;'):'')+'"></div><div class="fgrp"><label class="flbl">Email Address *</label><input type="email" class="finp" id="entEmail" placeholder="john@example.com" value="'+(existingEntry?existingEntry.email.replace(/"/g,'&quot;'):'')+'"></div></div><div style="font-size:13px;color:var(--txl);margin-bottom:22px;line-height:1.6">Pick <strong>1</strong> from T1 &nbsp;\u00b7&nbsp; <strong>2</strong> each from T2, T3, T4 &nbsp;\u00b7&nbsp; <strong>1</strong> from T5 &nbsp;\u00b7&nbsp; No duplicate players'+(t.announcement?'<br><span style="color:var(--bg);font-style:italic">'+t.announcement+'</span>':'')+(isEdit?'<br><strong style="color:var(--bg)">Editing existing entry \u2014 your previous picks are highlighted.</strong>':'')+'</div>';
-  Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];h+='<div class="tsec"><div class="thead2"><span class="tlbl">'+td.label+'</span><span class="todds">'+td.odds+'</span><span class="tinst">'+td.inst+'</span></div><div class="tgrid">'+(td.golfers||[]).map(function(g){var isSel=FS.used.has(g.name);return'<div class="gcrd'+(isSel?' sel':'')+'" data-tier="'+tn+'" data-name="'+g.name.replace(/"/g,'&quot;')+'" onclick="togPick('+tn+',\''+g.name.replace(/'/g,"\\'")+'\''+',this)"><div class="gname">'+g.name+'</div></div>';}).join('')+'</div></div>';});
+  Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];h+='<div class="tsec"><div class="thead2"><span class="tlbl">'+td.label+'</span>'+(td.odds?'<span class="todds">'+td.odds+'</span>':'')+'<span class="tinst">'+td.inst+'</span></div><div class="tgrid">'+(td.golfers||[]).map(function(g){var isSel=FS.used.has(g.name);var oddsHtml=g.odds?'<div class="godds">'+g.odds+'</div>':'';return'<div class="gcrd'+(isSel?' sel':'')+'" data-tier="'+tn+'" data-name="'+g.name.replace(/"/g,'&quot;')+'" onclick="togPick('+tn+',\''+g.name.replace(/'/g,"\\'")+'\''+',this)"><div class="gname">'+g.name+'</div>'+oddsHtml+'</div>';}).join('')+'</div></div>';});
   var tb1val=existingEntry?existingEntry.tb1:'',tb2val=existingEntry?existingEntry.tb2:'';
   h+='<div class="tbsec"><h4>&#127919; Tiebreaker #1 \u2014 Winning Score</h4><p>Guess the winning total to par.</p><input type="number" class="finp" id="tb1" placeholder="e.g. -18" value="'+tb1val+'" style="width:180px"></div><div class="tbsec"><h4>&#9986;&#65039; Tiebreaker #2 \u2014 Cut Line</h4><p>Guess the score where the cut will fall.</p><input type="number" class="finp" id="tb2" placeholder="e.g. +2" value="'+tb2val+'" style="width:180px"></div><div style="text-align:center;padding-top:8px"><button class="btnp" style="font-size:15px;padding:14px 44px" onclick="submitEntry()">'+(isEdit?'Save Changes':'Submit Entry')+' <span class="arr">&#8594;</span></button>'+(isEdit?'<div style="margin-top:10px"><button class="btns" onclick="FS.editingId=null;FS.editingToken=null;renderForm()">Cancel &amp; Start New Entry</button></div>':'<div style="font-size:12px;color:var(--txl);margin-top:12px">&#128279; You\'ll get a link to edit your picks</div>')+'</div>';
   fb.innerHTML=h;
@@ -1284,10 +1284,38 @@ function renderTBuilder(){
   document.getElementById('tierTournNm').textContent=t?t.name:'No active tournament';
   if(!t){el.innerHTML='<div class="empty"><p>Activate a tournament first.</p></div>';return;}
   el.innerHTML=Object.entries(t.tiers).map(function(e){var tn=e[0],td=e[1];
-    return'<div style="margin-bottom:20px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span class="trtag">Tier '+tn+'</span><span style="font-size:12px;color:var(--txl)">'+td.label+'</span></div>'+(td.golfers||[]).map(function(g,j){return'<div class="trrow"><input type="text" class="finp" id="t'+tn+'_g'+j+'_n" value="'+g.name.replace(/"/g,'&quot;')+'" style="flex:2" placeholder="Golfer name"><button class="btni" onclick="rmTG('+tn+','+j+')">&#10005;</button></div>';}).join('')+'<button class="btns" style="font-size:12px;padding:5px 14px;margin-top:6px" onclick="addTG('+tn+')">+ Add Golfer</button></div>';}).join('');
+    var tierNum=parseInt(tn);
+    return'<div style="margin-bottom:24px">'
+      +'<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span class="trtag">Tier '+tn+'</span><span style="font-size:12px;color:var(--txl)">'+td.label+'</span><span style="font-size:11px;color:var(--txl);margin-left:auto">'+((td.golfers||[]).length)+' players</span></div>'
+      +(td.golfers||[]).map(function(g,j){
+        var oddsDisplay=g.odds?'<span style="font-family:monospace;font-size:11px;color:var(--bg2);min-width:50px;text-align:right">'+g.odds+'</span>':'';
+        var moveUp=tierNum>1?'<button class="btni" title="Move to Tier '+(tierNum-1)+'" onclick="moveTG('+tn+','+j+','+(tierNum-1)+')" style="font-size:11px;width:24px;height:24px">\u25B2</button>':'';
+        var moveDown=tierNum<5?'<button class="btni" title="Move to Tier '+(tierNum+1)+'" onclick="moveTG('+tn+','+j+','+(tierNum+1)+')" style="font-size:11px;width:24px;height:24px">\u25BC</button>':'';
+        return'<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px;background:var(--white);border:1px solid var(--card2);border-radius:10px;padding:6px 10px">'
+          +oddsDisplay
+          +'<input type="text" class="finp" id="t'+tn+'_g'+j+'_n" value="'+g.name.replace(/"/g,'&quot;')+'" style="flex:1;padding:8px 10px;border:none;background:transparent" placeholder="Golfer name">'
+          +moveUp+moveDown
+          +'<button class="btni" onclick="rmTG('+tn+','+j+')" style="color:var(--red);font-size:14px;width:24px;height:24px">\u00d7</button>'
+          +'</div>';
+      }).join('')
+      +'<button class="btns" style="font-size:12px;padding:5px 14px;margin-top:6px" onclick="addTG('+tn+')">+ Add Golfer</button>'
+      +'</div>';
+  }).join('');
 }
 function addTG(tn){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.tiers[tn].golfers.push({name:'',odds:'',rank:''});saveDB(db);renderTBuilder();}
 function rmTG(tn,j){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;t.tiers[tn].golfers.splice(j,1);saveDB(db);renderTBuilder();renderForm();}
+function moveTG(fromTier,idx,toTier){
+  var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;
+  var from=t.tiers[fromTier];var to=t.tiers[toTier];
+  if(!from||!to)return;
+  // Save any unsaved name edits first
+  Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];td.golfers.forEach(function(g,j){var ne=document.getElementById('t'+tn+'_g'+j+'_n');if(ne)g.name=ne.value.trim();});});
+  var player=from.golfers.splice(idx,1)[0];
+  if(!player)return;
+  to.golfers.push(player);
+  saveDB(db);renderTBuilder();
+  toast(player.name+' moved to Tier '+toTier,'\u2705');
+}
 function saveTiers(){var db=getDB();var t=db.tournaments.find(function(t){return t.status==='active';});if(!t)return;Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];td.golfers.forEach(function(g,j){var ne=document.getElementById('t'+tn+'_g'+j+'_n');if(ne)g.name=ne.value.trim();});});saveDB(db);renderTBuilder();renderForm();toast('Tiers saved!');}
 
 // ── Auto-generate tiers from DraftKings odds paste ──
@@ -1572,30 +1600,14 @@ async function loadPublishedConfig() {
     var db = getDB();
     var t = data.tournament;
 
-    // Find or create the tournament in local DB
-    var existing = db.tournaments.find(function(x){ return x.id === t.id; });
-    if (existing) {
-      // Update everything from published config
-      existing.name = t.name;
-      existing.venue = t.venue;
-      existing.startDate = t.startDate;
-      existing.endDate = t.endDate;
-      existing.buyin = t.buyin;
-      existing.deadline = t.deadline;
-      existing.status = t.status;
-      existing.round = t.round;
-      existing.announcement = t.announcement;
-      existing.payouts = t.payouts;
-      existing.espnTournamentId = t.espnTournamentId || '';
-      existing.entries = t.entries;
-      existing.tiers = t.tiers;
-      if (t.golfers && t.golfers.length) existing.golfers = t.golfers;
-      existing.liveConfig = t.liveConfig;
-    } else {
-      // Add as new tournament
-      t.status = 'active';
-      db.tournaments.unshift(t);
-    }
+    // Replace all tournaments with ONLY the published one
+    // This ensures deleted tournaments don't persist on other devices
+    var archived = db.tournaments.filter(function(x){ return x.status === 'archived'; });
+    db.tournaments = archived; // keep archived for history
+
+    // Add the published tournament
+    t.status = 'active';
+    db.tournaments.unshift(t);
 
     // Apply theme if published
     if (data.theme) {
@@ -1622,3 +1634,4 @@ loadPublishedConfig().then(function(){
 </script>
 </body>
 </html>
+
