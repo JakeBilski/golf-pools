@@ -37,15 +37,15 @@ input,textarea,select{font-family:'Inter',sans-serif}
 .draft-ey{display:inline-flex;align-items:center;gap:7px;background:rgba(240,237,204,.07);border:1px solid rgba(240,237,204,.15);color:rgba(240,237,204,.65);font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;padding:6px 16px;border-radius:100px;margin-bottom:18px}
 .ldot{width:7px;height:7px;background:var(--lime);border-radius:50%;animation:pulse 1.5s infinite;display:inline-block}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(1.5)}}
-.page-hero h1{font-family:'Syne',sans-serif;font-size:clamp(28px,5vw,58px);font-weight:800;color:var(--card);line-height:1.05;margin-bottom:10px}
+.page-hero h1{font-family:'Syne',sans-serif;font-size:clamp(24px,4.5vw,46px);font-weight:800;color:var(--card);line-height:1.1;margin-bottom:10px;letter-spacing:-0.5px}
 .page-hero .sub{font-size:15px;color:rgba(240,237,204,.5);margin-bottom:30px}
 .hero-pills{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}
 .hpill{background:rgba(240,237,204,.07);border:1px solid rgba(240,237,204,.14);border-radius:100px;padding:10px 22px;display:flex;align-items:center;gap:10px}
-.hpill .v{font-family:'Syne',sans-serif;font-size:20px;font-weight:800;color:var(--lime)}
+.hpill .v{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--lime);letter-spacing:-0.3px}
 .hpill .l{font-size:11px;color:rgba(240,237,204,.4);text-transform:uppercase;letter-spacing:1.5px}
 .content-area{background:var(--card);border-radius:24px 24px 0 0;min-height:600px;padding:36px 24px 80px;margin-top:4px;max-width:960px;margin-left:auto;margin-right:auto}
 .sec{display:none}.sec.active{display:block}
-.stitle{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:var(--txt);margin-bottom:20px}
+.stitle{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--txt);margin-bottom:20px;letter-spacing:-0.3px}
 .snote{font-size:13px;color:var(--txm);margin-bottom:20px;background:rgba(10,61,34,.05);border:1px solid rgba(10,61,34,.1);border-radius:10px;padding:12px 16px}
 .card{background:var(--white);border-radius:var(--r);overflow:hidden;margin-bottom:24px;box-shadow:var(--sh)}
 .cardhead{background:var(--bg);padding:14px 22px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
@@ -80,7 +80,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
 .payrow{background:var(--bg);border-radius:var(--r);display:flex;justify-content:center;gap:14px;flex-wrap:wrap;padding:28px;margin-bottom:24px}
 .payitem{text-align:center;padding:18px 24px;background:rgba(240,237,204,.07);border:1px solid rgba(240,237,204,.12);border-radius:14px;min-width:120px}
 .payplace{font-size:11px;color:rgba(240,237,204,.45);text-transform:uppercase;letter-spacing:1.5px;margin-bottom:4px}
-.paypct{font-family:'Syne',sans-serif;font-size:34px;font-weight:800;color:var(--lime)}
+.paypct{font-family:'Syne',sans-serif;font-size:30px;font-weight:800;color:var(--lime);letter-spacing:-0.5px}
 .payamt{font-size:13px;color:rgba(240,237,204,.6);margin-top:4px}
 .paybdg{font-size:11px;font-weight:600;background:rgba(212,160,23,.15);border:1px solid rgba(212,160,23,.3);color:#7a5c10;padding:2px 9px;border-radius:100px}
 .inpool{font-size:10px;font-weight:600;background:rgba(10,61,34,.09);color:var(--bg2);border:1px solid rgba(10,61,34,.18);padding:2px 8px;border-radius:100px}
@@ -189,7 +189,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
 .dclose{background:rgba(240,237,204,.12);border:none;color:var(--card);width:32px;height:32px;border-radius:50%;font-size:16px;display:flex;align-items:center;justify-content:center;transition:all .15s}
 .dclose:hover{background:rgba(240,237,204,.25)}
 .dbody{padding:24px}
-.dscbig{font-family:'Syne',sans-serif;font-size:52px;font-weight:800;line-height:1;margin-bottom:4px}
+.dscbig{font-family:'Syne',sans-serif;font-size:44px;font-weight:800;line-height:1;margin-bottom:4px;letter-spacing:-1px}
 .dsclbl{font-size:12px;color:var(--txl);margin-bottom:22px;text-transform:uppercase;letter-spacing:1px}
 .drounds{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:22px}
 .drd{background:var(--white);border-radius:10px;padding:10px;text-align:center;border:1px solid var(--card2)}
@@ -539,57 +539,7 @@ function saveDB(db) { try { localStorage.setItem(SK, JSON.stringify(db)); } catc
 
 function defDB() {
   return {
-    tournaments: [{
-      id:'t_demo', name:'The Masters 2025', venue:'Augusta National Golf Club',
-      startDate:'2025-04-10', endDate:'2025-04-13', buyin:50,
-      deadline:'2025-04-10T08:00', status:'active', round:'R2', announcement:'',
-      entries:[
-        {id:'e1',name:'Mike Thompson',email:'mike@example.com',
-         picks:{T1:'Scottie Scheffler',T2a:'Xander Schauffele',T2b:'Collin Morikawa',T3a:'Max Homa',T3b:'Tony Finau',T4a:'Akshay Bhatia',T4b:'Tom Kim',T5:'Fred Couples'},
-         tb1:-18,tb2:2,score:-12,r:[-5,-4,'','']},
-        {id:'e2',name:'Sarah Chen',email:'sarah@example.com',
-         picks:{T1:'Rory McIlroy',T2a:'Viktor Hovland',T2b:'Patrick Cantlay',T3a:'Hideki Matsuyama',T3b:'Shane Lowry',T4a:'Ludvig \u00c5berg',T4b:'Byeong Hun An',T5:'Zach Johnson'},
-         tb1:-16,tb2:1,score:-9,r:[-4,-3,'','']},
-        {id:'e3',name:'James Wilson',email:'james@example.com',
-         picks:{T1:'Jon Rahm',T2a:'Xander Schauffele',T2b:'Viktor Hovland',T3a:'Max Homa',T3b:'Shane Lowry',T4a:'Tom Kim',T4b:'Byeong Hun An',T5:'Nick Hardy'},
-         tb1:-14,tb2:3,score:-7,r:[-2,-3,'','']},
-        {id:'e4',name:'Emily Davis',email:'emily@example.com',
-         picks:{T1:'Scottie Scheffler',T2a:'Collin Morikawa',T2b:'Patrick Cantlay',T3a:'Tony Finau',T3b:'Hideki Matsuyama',T4a:'Akshay Bhatia',T4b:'Ludvig \u00c5berg',T5:'Fred Couples'},
-         tb1:-20,tb2:0,score:-5,r:[-1,-2,'','']},
-        {id:'e5',name:'Robert Park',email:'rob@example.com',
-         picks:{T1:'Rory McIlroy',T2a:'Xander Schauffele',T2b:'Collin Morikawa',T3a:'Shane Lowry',T3b:'Max Homa',T4a:'Tom Kim',T4b:'Byeong Hun An',T5:'Zach Johnson'},
-         tb1:-15,tb2:2,score:-3,r:[0,-1,'','']}
-      ],
-      tiers:{
-        1:{label:'Tier 1 \u2014 Elite Favorites',odds:'+250\u2013+900',inst:'Pick 1',limit:1,golfers:[{name:'Scottie Scheffler',odds:'+250',rank:'World #1'},{name:'Rory McIlroy',odds:'+600',rank:'World #3'},{name:'Jon Rahm',odds:'+700',rank:'World #6'}]},
-        2:{label:'Tier 2 \u2014 Contenders',odds:'+1100\u2013+1600',inst:'Pick 2',limit:2,golfers:[{name:'Xander Schauffele',odds:'+1100',rank:'World #4'},{name:'Collin Morikawa',odds:'+1200',rank:'World #5'},{name:'Viktor Hovland',odds:'+1400',rank:'World #7'},{name:'Patrick Cantlay',odds:'+1600',rank:'World #9'}]},
-        3:{label:'Tier 3 \u2014 Dark Horses',odds:'+2000\u2013+2800',inst:'Pick 2',limit:2,golfers:[{name:'Max Homa',odds:'+2000',rank:'World #10'},{name:'Tony Finau',odds:'+2200',rank:'World #14'},{name:'Hideki Matsuyama',odds:'+2500',rank:'World #18'},{name:'Shane Lowry',odds:'+2800',rank:'World #21'}]},
-        4:{label:'Tier 4 \u2014 Long Shots',odds:'+3500\u2013+4500',inst:'Pick 2',limit:2,golfers:[{name:'Akshay Bhatia',odds:'+3500',rank:'World #28'},{name:'Ludvig \u00c5berg',odds:'+3500',rank:'World #30'},{name:'Tom Kim',odds:'+4000',rank:'World #33'},{name:'Byeong Hun An',odds:'+4500',rank:'World #36'}]},
-        5:{label:'Tier 5 \u2014 Biggest Odds',odds:'+7500+',inst:'Pick 1',limit:1,golfers:[{name:'Fred Couples',odds:'+8000',rank:'Champion Invite'},{name:'Zach Johnson',odds:'+7500',rank:"Captain's Pick"},{name:'Nick Hardy',odds:'+8500',rank:'World #65'},{name:'Jose Maria Olazabal',odds:'+10000',rank:'Special Invite'}]}
-      },
-      golfers:[
-        {pos:1,name:'Scottie Scheffler',flag:'US',score:-12,today:-5,thru:18,r:[-5,-4,'','']},
-        {pos:2,name:'Rory McIlroy',flag:'GB',score:-9,today:-3,thru:18,r:[-4,-3,'','']},
-        {pos:3,name:'Xander Schauffele',flag:'US',score:-8,today:-4,thru:18,r:[-3,-4,'','']},
-        {pos:4,name:'Collin Morikawa',flag:'US',score:-7,today:-2,thru:18,r:[-4,-2,'','']},
-        {pos:5,name:'Jon Rahm',flag:'ES',score:-6,today:-3,thru:18,r:[-2,-3,'','']},
-        {pos:6,name:'Viktor Hovland',flag:'NO',score:-5,today:-1,thru:18,r:[-3,-1,'','']},
-        {pos:7,name:'Max Homa',flag:'US',score:-4,today:0,thru:18,r:[-2,-2,'','']},
-        {pos:8,name:'Tony Finau',flag:'US',score:-3,today:1,thru:18,r:[-2,-1,'','']},
-        {pos:9,name:'Hideki Matsuyama',flag:'JP',score:-2,today:2,thru:18,r:[0,-2,'','']},
-        {pos:10,name:'Patrick Cantlay',flag:'US',score:-1,today:1,thru:18,r:[-1,0,'','']},
-        {pos:11,name:'Shane Lowry',flag:'IE',score:0,today:2,thru:18,r:[-1,0,'','']},
-        {pos:12,name:'Ludvig \u00c5berg',flag:'SE',score:2,today:0,thru:18,r:[1,1,'','']},
-        {pos:13,name:'Akshay Bhatia',flag:'US',score:3,today:1,thru:18,r:[2,0,'','']},
-        {pos:14,name:'Tom Kim',flag:'KR',score:4,today:2,thru:18,r:[2,1,'','']},
-        {pos:15,name:'Byeong Hun An',flag:'KR',score:5,today:0,thru:18,r:[3,1,'','']},
-        {pos:16,name:'Nick Hardy',flag:'US',score:8,today:3,thru:18,r:[4,3,'','']},
-        {pos:17,name:'Zach Johnson',flag:'US',score:10,today:4,thru:18,r:[5,4,'','']},
-        {pos:18,name:'Fred Couples',flag:'US',score:14,today:6,thru:18,r:[7,6,'','']},
-        {pos:'MC',name:'Jose Maria Olazabal',flag:'ES',score:20,today:'MC',thru:'MC',r:[10,'MC','','']}
-      ],
-      liveConfig:{tournamentId:'',espnUrl:'',interval:5}
-    }],
+    tournaments: [],
     adminPassword:'caddie2025',
     liveLastUpdated:null
   };
@@ -1623,6 +1573,13 @@ async function loadPublishedConfig() {
 }
 
 function refreshSite(){renderHero();renderHome();renderRules();renderHist();}
+// One-time migration: clear old demo data from v1
+var SCHEMA_VERSION = 'caddieShack_v2';
+if (!localStorage.getItem(SCHEMA_VERSION)) {
+  // Clear old data so published config takes over
+  localStorage.removeItem(SK);
+  localStorage.setItem(SCHEMA_VERSION, '1');
+}
 if(!localStorage.getItem(SK))saveDB(defDB());
 loadSavedTheme();
 refreshSite();renderRules();renderHist();startAutoRf();
@@ -1634,4 +1591,5 @@ loadPublishedConfig().then(function(){
 </script>
 </body>
 </html>
+
 
