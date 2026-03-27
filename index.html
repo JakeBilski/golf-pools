@@ -264,7 +264,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
       </div>
       <div class="tbwrap">
         <table class="tbl">
-          <thead><tr><th>Pos</th><th>Entrant</th><th>Payout</th><th>Score</th><th colspan="5" style="text-align:center">Top Picks</th><th></th></tr></thead>
+          <thead><tr><th>Pos</th><th>Entrant</th><th>Score</th><th colspan="5" style="text-align:center">Top Picks</th><th></th></tr></thead>
           <tbody id="poolTbody"></tbody>
         </table>
       </div>
@@ -892,7 +892,7 @@ function renderHome(){
         // FIX: decimal payouts
         pb='<span class="paybdg">&#128176; '+fmtMoney(pays[r-1])+'</span>';
       }
-      if(!dp)return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk rn">\u2014</span></td><td><div style="font-weight:600">'+e.name+'</div></td><td></td><td colspan="6" style="color:var(--txl);font-size:12px;font-style:italic">Lineup hidden until deadline passes</td></tr>';
+      if(!dp)return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk rn">\u2014</span></td><td><div style="font-weight:600">'+e.name+'</div></td><td colspan="6" style="color:var(--txl);font-size:12px;font-style:italic">Lineup hidden until deadline passes</td></tr>';
       var picks=Object.values(e.picks).filter(Boolean);
       var pickScores=picks.map(function(p){return{name:p,score:typeof gm[p]==='number'?gm[p]:null};});
       pickScores.sort(function(a,b){return (a.score!==null?a.score:99)-(b.score!==null?b.score:99);});
@@ -902,7 +902,7 @@ function renderHome(){
         return '<td style="font-size:11px"><div style="font-weight:600;white-space:nowrap;overflow:hidden;max-width:90px;text-overflow:ellipsis" title="'+p.name+'">'+p.name.split(' ').pop()+'</div><div>'+sc+'</div></td>';
       }).join('');
       while(topPicks.length<5){pickHtml+='<td></td>';topPicks.push({});}
-      return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk '+rc+'">'+displayR+'</span></td><td><div style="font-weight:600">'+e.name+'</div></td><td>'+pb+'</td><td>'+fmtS(e.score)+'</td>'+pickHtml+'<td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
+      return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk '+rc+'">'+displayR+'</span></td><td><div style="font-weight:600">'+e.name+'</div>'+(pb?'<div style="margin-top:2px">'+pb+'</div>':'')+'</td><td>'+fmtS(e.score)+'</td>'+pickHtml+'<td style="color:var(--txl);font-size:16px;text-align:right">&#8250;</td></tr>';
     }).join('');
   }
 
