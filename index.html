@@ -213,6 +213,10 @@ input,textarea,select{font-family:'Inter',sans-serif}
 .empty strong{color:var(--txt);display:block;margin-bottom:6px;font-size:16px}
 .toast{position:fixed;bottom:20px;right:20px;background:var(--dark);color:var(--card);padding:13px 20px;border-radius:14px;font-size:13px;box-shadow:0 6px 24px rgba(0,0,0,.25);transform:translateY(80px);opacity:0;transition:all .3s;z-index:9999;max-width:320px;display:flex;align-items:center;gap:9px}
 .toast.show{transform:translateY(0);opacity:1}
+.float-submit{position:fixed;bottom:0;left:0;right:0;background:var(--bg);padding:14px 24px;display:flex;align-items:center;justify-content:center;gap:12px;z-index:300;box-shadow:0 -4px 24px rgba(0,0,0,.25);transform:translateY(100%);transition:transform .3s ease;border-top:2px solid var(--lime)}
+.float-submit.show{transform:translateY(0)}
+.float-submit .fs-count{font-size:13px;color:var(--card);font-weight:600}
+.float-submit .fs-count span{color:var(--lime)}
 @media(max-width:640px){.frow{grid-template-columns:1fr}.ctabar{flex-direction:column;text-align:center}.hero-pills{gap:8px}.topbar{padding:8px 14px}.nav-pill{padding:3px;gap:1px}.nbtn{padding:7px 11px;font-size:12px}.content-area{padding:24px 14px 60px}.stitle{font-size:22px}}
 </style>
 </head>
@@ -226,6 +230,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
   <nav class="nav-pill">
     <button class="nbtn on" onclick="goSec('home',this)">Leaderboard</button>
     <button class="nbtn" onclick="goSec('enter',this)">Submit Entry</button>
+    <button class="nbtn" onclick="goSecEdit(this)">Edit Entry</button>
     <button class="nbtn" onclick="goSec('rules',this)">Rules</button>
     <button class="nbtn" onclick="goSec('history',this)">History</button>
     <button class="nbtn" onclick="goSec('admin',this)">Admin</button>
@@ -320,8 +325,14 @@ input,textarea,select{font-family:'Inter',sans-serif}
           <h2>Entry Submitted!</h2>
           <p>Good luck, <strong id="confEmail"></strong>!</p>
           <div class="esumm"><div class="estit">Your Lineup</div><div id="confLineup"></div></div>
+          <div style="background:#e8f5ec;border:2px solid #1a6e3a;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center">
+            <div style="font-size:16px;font-weight:800;color:#0d3a1a;margin-bottom:4px">&#128176; Pay Your Entry Fee</div>
+            <div style="font-size:14px;color:#2a4a35;margin-bottom:14px" id="venmoMsg">Please Venmo <strong>@Jake-Bilski</strong> your entry fee by the deadline.</div>
+            <img src="venmo-qr.png" alt="Venmo QR Code for @Jake-Bilski" style="width:200px;height:200px;border-radius:12px;border:1px solid #ddd;margin-bottom:10px">
+            <div style="font-size:12px;color:var(--txl)">Scan with your phone camera or Venmo app</div>
+          </div>
           <div style="background:rgba(10,61,34,.06);border:1px solid rgba(10,61,34,.15);border-radius:12px;padding:14px;margin-bottom:20px;text-align:left">
-            <div style="font-size:12px;color:var(--txl)">To edit your picks before the deadline, go to <strong>Submit Entry</strong> and click <strong>Edit My Entry</strong>. You'll verify with your email.</div>
+            <div style="font-size:12px;color:var(--txl)">To edit your picks before the deadline, click <strong>Edit Entry</strong> in the menu and verify with your email.</div>
           </div>
           <div class="cflex">
             <button class="btnp" onclick="goSec('home',document.querySelectorAll('.nbtn')[0])">View Leaderboard <span class="arr">&#8594;</span></button>
@@ -506,6 +517,62 @@ input,textarea,select{font-family:'Inter',sans-serif}
             <button class="btnp" onclick="saveCustomTheme()">Apply &amp; Save <span class="arr">&#8594;</span></button>
             <button class="btns" onclick="applyPreset('l',document.querySelector('.thopt'))">Reset to Default</button>
           </div>
+          <hr class="divider">
+          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;margin-bottom:14px;color:var(--txt)">Fonts</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px">
+            <div class="fgrp" style="margin:0">
+              <label class="flbl">Heading Font</label>
+              <select class="finp" id="tc_headFont" onchange="previewFonts()">
+                <option value="Syne">Syne (default)</option>
+                <option value="Playfair Display">Playfair Display</option>
+                <option value="Oswald">Oswald</option>
+                <option value="Bebas Neue">Bebas Neue</option>
+                <option value="Montserrat">Montserrat</option>
+                <option value="Raleway">Raleway</option>
+                <option value="Poppins">Poppins</option>
+                <option value="Lora">Lora</option>
+                <option value="Merriweather">Merriweather</option>
+                <option value="Bitter">Bitter</option>
+                <option value="Josefin Sans">Josefin Sans</option>
+                <option value="Archivo Black">Archivo Black</option>
+                <option value="DM Serif Display">DM Serif Display</option>
+                <option value="Outfit">Outfit</option>
+                <option value="Space Grotesk">Space Grotesk</option>
+              </select>
+              <div style="margin-top:6px;padding:8px 12px;background:var(--white);border:1px solid var(--card2);border-radius:8px"><span id="headFontPreview" style="font-size:18px;font-weight:800">The Masters 2026</span></div>
+            </div>
+            <div class="fgrp" style="margin:0">
+              <label class="flbl">Body Font</label>
+              <select class="finp" id="tc_bodyFont" onchange="previewFonts()">
+                <option value="Inter">Inter (default)</option>
+                <option value="Roboto">Roboto</option>
+                <option value="Open Sans">Open Sans</option>
+                <option value="Lato">Lato</option>
+                <option value="Source Sans 3">Source Sans 3</option>
+                <option value="Nunito">Nunito</option>
+                <option value="PT Sans">PT Sans</option>
+                <option value="Work Sans">Work Sans</option>
+                <option value="DM Sans">DM Sans</option>
+                <option value="Karla">Karla</option>
+                <option value="Outfit">Outfit</option>
+                <option value="IBM Plex Sans">IBM Plex Sans</option>
+                <option value="Figtree">Figtree</option>
+              </select>
+              <div style="margin-top:6px;padding:8px 12px;background:var(--white);border:1px solid var(--card2);border-radius:8px"><span id="bodyFontPreview" style="font-size:14px">Scottie Scheffler -12 &middot; Round 2 in Progress</span></div>
+            </div>
+          </div>
+          <div class="fgrp" style="margin-bottom:18px">
+            <label class="flbl">Or enter any Google Font name</label>
+            <div class="frow">
+              <div><input type="text" class="finp" id="tc_customHeadFont" placeholder="Custom heading font" oninput="previewFonts()"></div>
+              <div><input type="text" class="finp" id="tc_customBodyFont" placeholder="Custom body font" oninput="previewFonts()"></div>
+            </div>
+            <div style="font-size:11px;color:var(--txl);margin-top:5px">Browse fonts at <a href="https://fonts.google.com" target="_blank" style="color:var(--bg2)">fonts.google.com</a>. Type the exact font name.</div>
+          </div>
+          <div style="display:flex;gap:10px;flex-wrap:wrap">
+            <button class="btnp" onclick="saveFonts()">Apply Fonts <span class="arr">&#8594;</span></button>
+            <button class="btns" onclick="resetFonts()">Reset to Default</button>
+          </div>
         </div>
       </div>
 
@@ -545,6 +612,11 @@ input,textarea,select{font-family:'Inter',sans-serif}
     <div class="dhead"><h3 id="drName">Player</h3><button class="dclose" onclick="closeDr()">&#10005;</button></div>
     <div class="dbody" id="drBody"></div>
   </div>
+</div>
+
+<div class="float-submit" id="floatSubmit">
+  <div class="fs-count"><span id="fsCount">0</span>/8 players selected</div>
+  <button class="btnp" style="font-size:14px;padding:12px 30px" onclick="submitEntry()">Submit Entry <span class="arr">&#8594;</span></button>
 </div>
 
 <div class="toast" id="toastEl"></div>
@@ -597,6 +669,7 @@ async function pushToWorker() {
       golfers: t.golfers, liveConfig: t.liveConfig || {}
     },
     theme: db.theme || null,
+    fonts: db.fonts || null,
     publishedAt: new Date().toISOString()
   };
   try {
@@ -628,6 +701,7 @@ async function pullFromWorker() {
     db.tournaments.unshift(t);
 
     if (data.theme) db.theme = data.theme;
+    if (data.fonts) db.fonts = data.fonts;
     saveDB(db);
     return true;
   } catch(err) {
@@ -686,6 +760,18 @@ function goSec(id,btn){
   document.querySelectorAll('.nbtn').forEach(function(b){b.classList.remove('on');});
   if(btn)btn.classList.add('on');
   if(id==='enter')renderForm();
+  // Hide floating submit bar when leaving the entry form
+  var fsEl=document.getElementById('floatSubmit');if(fsEl)fsEl.classList.remove('show');
+  window.scrollTo(0,0);
+}
+
+function goSecEdit(btn){
+  // Go to the entry section but show the edit lookup instead of the form
+  document.querySelectorAll('.sec').forEach(function(s){s.classList.remove('active');});
+  document.getElementById('sec-enter').classList.add('active');
+  document.querySelectorAll('.nbtn').forEach(function(b){b.classList.remove('on');});
+  if(btn)btn.classList.add('on');
+  startEditLookup();
   window.scrollTo(0,0);
 }
 
@@ -928,6 +1014,11 @@ function closeDr(){document.getElementById('playerDrawer').classList.remove('ope
 var FS={picks:{1:null,2:[],3:[],4:[],5:null},used:new Set(),editingId:null,editingToken:null};
 function renderForm(editingId){
   var t=getActive(),fb=document.getElementById('frmBody');
+  // Reset view state
+  document.getElementById('frmView').style.display='block';
+  document.getElementById('editLookupView').style.display='none';
+  document.getElementById('confView').style.display='none';
+  var fsEl=document.getElementById('floatSubmit');if(fsEl)fsEl.classList.remove('show');
   if(!t){document.getElementById('frmTitle').textContent='No Active Tournament';document.getElementById('frmSub').textContent='Check back when a tournament is open.';fb.innerHTML='<div class="empty"><div class="ei">&#9971;</div><p>No active tournament.</p></div>';return;}
   var dp=dlPassed(t);
   var isEdit=!!(editingId||FS.editingId);
@@ -970,7 +1061,18 @@ function togPick(tn,name,el){
   if(cur>=td.limit){if(!multi){var pv=document.querySelector('.gcrd.sel[data-tier="'+tn+'"]');if(pv){u.delete(pv.dataset.name);pv.classList.remove('sel');p[tn]=null;}}else{toast('Max '+td.limit+' picks for this tier','\u26a0\ufe0f');return;}}
   el.classList.add('sel');u.add(name);if(multi)p[tn].push(name);else p[tn]=name;refDis();
 }
-function refDis(){document.querySelectorAll('.gcrd').forEach(function(c){if(!c.classList.contains('sel')&&FS.used.has(c.dataset.name))c.classList.add('dis');else c.classList.remove('dis');});}
+function refDis(){
+  document.querySelectorAll('.gcrd').forEach(function(c){if(!c.classList.contains('sel')&&FS.used.has(c.dataset.name))c.classList.add('dis');else c.classList.remove('dis');});
+  // Update floating submit bar
+  var count=FS.used.size;
+  var fsEl=document.getElementById('floatSubmit');
+  var fcEl=document.getElementById('fsCount');
+  if(fcEl)fcEl.textContent=count;
+  if(fsEl){
+    if(count>=8)fsEl.classList.add('show');
+    else fsEl.classList.remove('show');
+  }
+}
 
 function submitEntry(){
   var nm=document.getElementById('entName')?document.getElementById('entName').value.trim():'';
@@ -1014,6 +1116,14 @@ function submitEntry(){
   document.getElementById('confEmail').textContent=em;
   var list=[{t:'T1',n:p[1]},{t:'T2',n:p[2][0]},{t:'T2',n:p[2][1]},{t:'T3',n:p[3][0]},{t:'T3',n:p[3][1]},{t:'T4',n:p[4][0]},{t:'T4',n:p[4][1]},{t:'T5',n:p[5]}];
   document.getElementById('confLineup').innerHTML=list.map(function(x){return'<div class="eprow"><span class="etier">'+x.t+'</span><span class="ename">'+x.n+'</span></div>';}).join('');
+  // Set Venmo message with entry fee and deadline
+  var venmoEl=document.getElementById('venmoMsg');
+  if(venmoEl){
+    var deadlineStr=t.deadline?new Date(t.deadline).toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'the deadline';
+    venmoEl.innerHTML='Please Venmo <strong>@Jake-Bilski</strong> <strong>$'+t.buyin+'</strong> by <strong>'+deadlineStr+'</strong>';
+  }
+  // Hide floating submit bar
+  var fsEl=document.getElementById('floatSubmit');if(fsEl)fsEl.classList.remove('show');
   document.getElementById('frmView').style.display='none';document.getElementById('editLookupView').style.display='none';document.getElementById('confView').style.display='block';
   refreshSite();toast('Entry submitted! Welcome, '+nm+'!');
 }
@@ -1626,7 +1736,87 @@ function saveCustomTheme(){liveTheme();var c={bg:document.getElementById('tc_bg'
 function applyThemeVars(c){var r=document.documentElement.style;r.setProperty('--bg',c.bg);r.setProperty('--bg2',c.bg2||c.bg);r.setProperty('--lime',c.lime);r.setProperty('--limd',c.ld||c.lime);r.setProperty('--card',c.card);r.setProperty('--card2',c.c2||c.card);r.setProperty('--card3',c.c3||c.card);r.setProperty('--dark',c.dark||c.bg);document.body.style.background=c.bg;var ca=document.querySelector('.content-area');if(ca)ca.style.background=c.card;}
 function saveThemeToStorage(c){try{var db=getDB();db.theme=c;saveDB(db);}catch(e){}}
 function adjustColor(hex,amount){try{var r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);r=Math.max(0,Math.min(255,r+amount));g=Math.max(0,Math.min(255,g+amount));b=Math.max(0,Math.min(255,b+amount));return '#'+[r,g,b].map(function(v){return v.toString(16).padStart(2,'0');}).join('');}catch(e){return hex;}}
-function loadSavedTheme(){try{var db=getDB();if(db.theme)applyThemeVars(db.theme);}catch(e){}}
+function loadSavedTheme(){
+  try{
+    var db=getDB();
+    if(db.theme)applyThemeVars(db.theme);
+    if(db.fonts)applyFonts(db.fonts.headFont,db.fonts.bodyFont);
+  }catch(e){}
+}
+
+// ── Google Fonts management ──
+function loadGoogleFont(fontName){
+  if(!fontName||fontName==='Inter'||fontName==='Syne')return; // already loaded
+  var id='gf-'+fontName.replace(/\s+/g,'-').toLowerCase();
+  if(document.getElementById(id))return; // already loaded
+  var link=document.createElement('link');
+  link.id=id;
+  link.rel='stylesheet';
+  link.href='https://fonts.googleapis.com/css2?family='+encodeURIComponent(fontName)+':wght@300;400;500;600;700;800&display=swap';
+  document.head.appendChild(link);
+}
+
+function applyFonts(headFont,bodyFont){
+  if(headFont){
+    loadGoogleFont(headFont);
+    document.documentElement.style.setProperty('--font-head',"'"+headFont+"',sans-serif");
+    // Apply to all elements that use Syne
+    document.querySelectorAll('[style*="font-family"],.stitle,.page-hero h1,.logo h1,.cardhead h3,.phead h3,.fhero h2,.conf h2,.hban-t,.dscbig,.paypct,.tlbl,.atit,.aauth h2,.ctabar h3,.tbval,.tname,.drdv').forEach(function(el){
+      // Only override if it was using the heading font
+    });
+    var style=document.getElementById('customFontStyle');
+    if(!style){style=document.createElement('style');style.id='customFontStyle';document.head.appendChild(style);}
+    var css='.stitle,.page-hero h1,.logo h1,.cardhead h3,.phead h3,.fhero h2,.conf h2,.hban-t,.dscbig,.paypct,.tlbl,.atit,.aauth h2,.ctabar h3,.tbval,.tname,.drdv,.thead2 .tlbl,.dthead,.hpill .v{font-family:"'+headFont+'",sans-serif!important}';
+    if(bodyFont){
+      loadGoogleFont(bodyFont);
+      css+='body,.finp,.nbtn,.gcrd,.gname,.godds,.dpnm,.dpsc,.tblbl,.flbl,.snote,.rcnt p,.adsc,.tmeta,.eprow,.skit{font-family:"'+bodyFont+'",sans-serif!important}';
+    }
+    style.textContent=css;
+  }
+}
+
+function previewFonts(){
+  var headSelect=document.getElementById('tc_headFont');
+  var bodySelect=document.getElementById('tc_bodyFont');
+  var customHead=document.getElementById('tc_customHeadFont');
+  var customBody=document.getElementById('tc_customBodyFont');
+  var headFont=(customHead&&customHead.value.trim())?customHead.value.trim():(headSelect?headSelect.value:'Syne');
+  var bodyFont=(customBody&&customBody.value.trim())?customBody.value.trim():(bodySelect?bodySelect.value:'Inter');
+  loadGoogleFont(headFont);
+  loadGoogleFont(bodyFont);
+  var hp=document.getElementById('headFontPreview');
+  var bp=document.getElementById('bodyFontPreview');
+  if(hp)hp.style.fontFamily="'"+headFont+"',sans-serif";
+  if(bp)bp.style.fontFamily="'"+bodyFont+"',sans-serif";
+}
+
+function saveFonts(){
+  var headSelect=document.getElementById('tc_headFont');
+  var bodySelect=document.getElementById('tc_bodyFont');
+  var customHead=document.getElementById('tc_customHeadFont');
+  var customBody=document.getElementById('tc_customBodyFont');
+  var headFont=(customHead&&customHead.value.trim())?customHead.value.trim():(headSelect?headSelect.value:'Syne');
+  var bodyFont=(customBody&&customBody.value.trim())?customBody.value.trim():(bodySelect?bodySelect.value:'Inter');
+  applyFonts(headFont,bodyFont);
+  var db=getDB();
+  db.fonts={headFont:headFont,bodyFont:bodyFont};
+  saveDB(db);
+  toast('Fonts applied! Heading: '+headFont+', Body: '+bodyFont,'\u2705');
+}
+
+function resetFonts(){
+  var style=document.getElementById('customFontStyle');
+  if(style)style.remove();
+  var db=getDB();
+  delete db.fonts;
+  saveDB(db);
+  document.getElementById('tc_headFont').value='Syne';
+  document.getElementById('tc_bodyFont').value='Inter';
+  var ch=document.getElementById('tc_customHeadFont');if(ch)ch.value='';
+  var cb=document.getElementById('tc_customBodyFont');if(cb)cb.value='';
+  previewFonts();
+  toast('Fonts reset to default');
+}
 
 function openGolferModal(name) {
   var t = getActive();if (!t) return;
