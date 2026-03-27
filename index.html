@@ -861,9 +861,17 @@ function openDr(idx){
   var gm={};t.golfers.forEach(function(g){gm[g.name]=g.score;});
   var TK={1:['T1'],2:['T2a','T2b'],3:['T3a','T3b'],4:['T4a','T4b'],5:['T5']};
   var TL={1:'Tier 1 \u2014 Elite Favorites',2:'Tier 2 \u2014 Contenders',3:'Tier 3 \u2014 Dark Horses',4:'Tier 4 \u2014 Long Shots',5:'Tier 5 \u2014 Biggest Odds'};
-  var ap=['T1','T2a','T2b','T3a','T3b','T4a','T4b','T5'].map(function(k){return{k:k,n:e.picks[k]};});
-  var sc=ap.map(function(p){var s=gm[p.n];return typeof s==='number'?s:20;}).sort(function(a,b){return a-b;});
-  var cnt=sc.slice(0,5);
+  var allPicks=['T1','T2a','T2b','T3a','T3b','T4a','T4b','T5'].map(function(k){
+    var nm=e.picks[k];
+    var ps=nm&&gm[nm]!==undefined?gm[nm]:20;
+    return{k:k,n:nm,score:ps};
+  });
+  // Sort by score to find top 5
+  var sorted5=[].concat(allPicks).sort(function(a,b){return a.score-b.score;});
+  var top5=sorted5.slice(0,5);
+  var top5keys={};top5.forEach(function(p){top5keys[p.k]=true;});
+  // Detect ties: check if any score in top 5 appears more than once across all 8 picks
+  var scoreCount={};allPicks.forEach(function(p){scoreCount[p.score]=(scoreCount[p.score]||0)+1;});
   var rc=rank===1?'r1':rank===2?'r2':rank===3?'r3':'rn';
   document.getElementById('drName').textContent=e.name;
   var h='<div style="display:flex;align-items:center;gap:10px;margin-bottom:20px"><span class="rnk '+rc+'" style="width:32px;height:32px;font-size:14px">'+rank+'</span><span style="font-size:13px;color:var(--txl)">'+e.email+'</span></div>';
@@ -873,7 +881,7 @@ function openDr(idx){
     [1,2,3,4,5].forEach(function(ti){
       var keys=TK[ti];
       h+='<div class="dtier"><div class="dthead"><span>'+TL[ti]+'</span><span style="opacity:.6;font-size:10px">'+(ti===1||ti===5?'Pick 1':'Pick 2')+'</span></div>';
-      keys.forEach(function(k){var nm=e.picks[k];if(!nm)return;var ps=gm[nm]!==undefined?gm[nm]:20;var ic=cnt.includes(ps);h+='<div class="dpick'+(ic?' cnt':'')+'"><div><div class="dpnm">'+nm+'</div>'+(ic?'<span class="cntbdg">Counted in top 5</span>':'')+'</div><div class="dpsc">'+fmtS(ps)+'</div></div>';});
+      keys.forEach(function(k){var nm=e.picks[k];if(!nm)return;var ps=gm[nm]!==undefined?gm[nm]:20;var ic=!!top5keys[k];var isTied=ic&&scoreCount[ps]>1;h+='<div class="dpick'+(ic?' cnt':'')+'"><div><div class="dpnm">'+nm+'</div>'+(ic?'<span class="cntbdg">Counted in top 5'+(isTied?' \u2014 tied':'')+'</span>':'')+'</div><div class="dpsc">'+fmtS(ps)+'</div></div>';});
       h+='</div>';
     });
     var leader=t.golfers.length?t.golfers[0].score:null;
@@ -1598,5 +1606,3 @@ pullFromWorker().then(function(success){
 </script>
 </body>
 </html>
-
-
