@@ -326,7 +326,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
           <p>Good luck, <strong id="confEmail"></strong>!</p>
           <div class="esumm"><div class="estit">Your Lineup</div><div id="confLineup"></div></div>
           <div style="background:#e8f5ec;border:2px solid #1a6e3a;border-radius:16px;padding:20px;margin-bottom:20px;text-align:center">
-            <div style="font-size:16px;font-weight:800;color:#0d3a1a;margin-bottom:4px">&#128176; Pay Your Entry Fee</div>
+            <div style="font-size:16px;font-weight:800;color:#0d3a1a;margin-bottom:4px">Pay Your Entry Fee</div>
             <div style="font-size:14px;color:#2a4a35;margin-bottom:14px" id="venmoMsg">Please Venmo <strong>@Jake-Bilski</strong> your entry fee by the deadline.</div>
             <img src="venmo-qr.png" alt="Venmo QR Code for @Jake-Bilski" style="width:200px;height:200px;border-radius:12px;border:1px solid #ddd;margin-bottom:10px">
             <div style="font-size:12px;color:var(--txl)">Scan with your phone camera or Venmo app</div>
@@ -887,10 +887,10 @@ function renderHome(){
         tiedIdxs.forEach(function(ti){if(ti<3)splitAmt+=pays[ti];});
         var payingTied=tiedIdxs.filter(function(ti){return ti<3;}).length;
         // FIX: decimal payouts for ties
-        if(payingTied>0) pb='<span class="paybdg">&#128176; '+fmtMoney(splitAmt/payingTied)+'</span>';
+        if(payingTied>0) pb='<span class="paybdg">'+fmtMoney(splitAmt/payingTied)+'</span>';
       } else if(r<=3){
         // FIX: decimal payouts
-        pb='<span class="paybdg">&#128176; '+fmtMoney(pays[r-1])+'</span>';
+        pb='<span class="paybdg">'+fmtMoney(pays[r-1])+'</span>';
       }
       if(!dp)return '<tr class="cl" onclick="openDr('+i+')"><td><span class="rnk rn">\u2014</span></td><td><div style="font-weight:600">'+e.name+'</div></td><td colspan="6" style="color:var(--txl);font-size:12px;font-style:italic">Lineup hidden until deadline passes</td></tr>';
       var picks=Object.values(e.picks).filter(Boolean);
