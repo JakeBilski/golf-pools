@@ -1046,9 +1046,29 @@ function renderForm(editingId){
   var h=editBtnHtml+'<div class="frow"><div class="fgrp"><label class="flbl">Full Name *</label><input type="text" class="finp" id="entName" placeholder="John Smith" value="'+(existingEntry?existingEntry.name.replace(/"/g,'&quot;'):'')+'"></div><div class="fgrp"><label class="flbl">Email Address *</label><input type="email" class="finp" id="entEmail" placeholder="john@example.com" value="'+(existingEntry?existingEntry.email.replace(/"/g,'&quot;'):'')+'"></div></div><div style="font-size:13px;color:var(--txl);margin-bottom:22px;line-height:1.6">Pick <strong>1</strong> from T1 &nbsp;\u00b7&nbsp; <strong>2</strong> each from T2, T3, T4 &nbsp;\u00b7&nbsp; <strong>1</strong> from T5 &nbsp;\u00b7&nbsp; No duplicate players'+(t.announcement?'<br><span style="color:var(--bg);font-style:italic">'+t.announcement+'</span>':'')+(isEdit?'<br><strong style="color:var(--bg)">Editing existing entry \u2014 your previous picks are highlighted.</strong>':'')+'</div>';
   Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];h+='<div class="tsec"><div class="thead2"><span class="tlbl">'+td.label+'</span>'+(td.odds?'<span class="todds">'+td.odds+'</span>':'')+'<span class="tinst">'+td.inst+'</span></div><div class="tgrid">'+(td.golfers||[]).map(function(g){var isSel=FS.used.has(g.name);var oddsHtml=g.odds?'<div class="godds">'+g.odds+'</div>':'';return'<div class="gcrd'+(isSel?' sel':'')+'" data-tier="'+tn+'" data-name="'+g.name.replace(/"/g,'&quot;')+'" onclick="togPick('+tn+',\''+g.name.replace(/'/g,"\\'")+'\''+',this)"><div class="gname">'+g.name+'</div>'+oddsHtml+'</div>';}).join('')+'</div></div>';});
   var tb1val=existingEntry?existingEntry.tb1:'',tb2val=existingEntry?existingEntry.tb2:'';
-  h+='<div class="tbsec"><h4>&#127919; Tiebreaker #1 \u2014 Winning Score</h4><p>Guess the winning total to par.</p><input type="number" class="finp" id="tb1" placeholder="e.g. -18" value="'+tb1val+'" style="width:180px"></div><div class="tbsec"><h4>&#9986;&#65039; Tiebreaker #2 \u2014 Cut Line</h4><p>Guess the score where the cut will fall.</p><input type="number" class="finp" id="tb2" placeholder="e.g. +2" value="'+tb2val+'" style="width:180px"></div><div style="text-align:center;padding-top:8px"><button class="btnp" style="font-size:15px;padding:14px 44px" onclick="submitEntry()">'+(isEdit?'Save Changes':'Submit Entry')+' <span class="arr">&#8594;</span></button>'+(isEdit?'<div style="margin-top:10px"><button class="btns" onclick="FS.editingId=null;FS.editingToken=null;renderForm()">Cancel &amp; Start New Entry</button></div>':'')+'</div>';
+  h+='<div class="tbsec"><h4>&#127919; Tiebreaker #1 \u2014 Winning Score</h4><p>Guess the winning total to par.</p><div style="display:flex;align-items:center;gap:12px"><button type="button" class="btnp" style="width:44px;height:44px;padding:0;font-size:20px;border-radius:50%;justify-content:center" onclick="stepTB(\'tb1\',-1)">\u2212</button><div style="min-width:70px;text-align:center"><input type="hidden" id="tb1" value="'+(tb1val!==''?tb1val:'-10')+'"><span id="tb1Display" style="font-family:monospace;font-size:28px;font-weight:800"></span></div><button type="button" class="btnp" style="width:44px;height:44px;padding:0;font-size:20px;border-radius:50%;justify-content:center" onclick="stepTB(\'tb1\',1)">+</button></div></div>';
+  h+='<div class="tbsec"><h4>&#9986;&#65039; Tiebreaker #2 \u2014 Cut Line</h4><p>Guess the score where the cut will fall.</p><div style="display:flex;align-items:center;gap:12px"><button type="button" class="btnp" style="width:44px;height:44px;padding:0;font-size:20px;border-radius:50%;justify-content:center" onclick="stepTB(\'tb2\',-1)">\u2212</button><div style="min-width:70px;text-align:center"><input type="hidden" id="tb2" value="'+(tb2val!==''?tb2val:'0')+'"><span id="tb2Display" style="font-family:monospace;font-size:28px;font-weight:800"></span></div><button type="button" class="btnp" style="width:44px;height:44px;padding:0;font-size:20px;border-radius:50%;justify-content:center" onclick="stepTB(\'tb2\',1)">+</button></div></div>';
+  h+='<div style="text-align:center;padding-top:8px"><button class="btnp" style="font-size:15px;padding:14px 44px" onclick="submitEntry()">'+(isEdit?'Save Changes':'Submit Entry')+' <span class="arr">&#8594;</span></button>'+(isEdit?'<div style="margin-top:10px"><button class="btns" onclick="FS.editingId=null;FS.editingToken=null;renderForm()">Cancel &amp; Start New Entry</button></div>':'')+'</div>';
   fb.innerHTML=h;
-  setTimeout(refDis,0);
+  setTimeout(function(){refDis();updateTBDisplay('tb1');updateTBDisplay('tb2');},0);
+}
+
+function stepTB(id,dir){
+  var el=document.getElementById(id);
+  if(!el)return;
+  var val=parseInt(el.value)||0;
+  val+=dir;
+  el.value=val;
+  updateTBDisplay(id);
+}
+function updateTBDisplay(id){
+  var el=document.getElementById(id);
+  var disp=document.getElementById(id+'Display');
+  if(!el||!disp)return;
+  var val=parseInt(el.value)||0;
+  if(val===0){disp.textContent='E';disp.style.color='#0d3a1a';}
+  else if(val<0){disp.textContent=String(val);disp.style.color='var(--red)';}
+  else{disp.textContent='+'+val;disp.style.color='#1a6e3a';}
 }
 
 function togPick(tn,name,el){
