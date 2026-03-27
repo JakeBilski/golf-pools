@@ -6,6 +6,7 @@
 <title>Golf Betting Pool</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -283,6 +284,35 @@ input,textarea,select{font-family:'Inter',sans-serif}
         <div class="fbody" id="frmBody"></div>
       </div>
     </div>
+    <div id="editLookupView" style="display:none">
+      <div class="card">
+        <div class="fhero">
+          <h2>&#128274; Edit Your Entry</h2>
+          <p>Verify your email to access your picks</p>
+        </div>
+        <div class="fbody" style="max-width:400px;margin:0 auto">
+          <div id="verifyStep1">
+            <div class="fgrp"><label class="flbl">Email Address</label><input type="email" class="finp" id="verifyEmail" placeholder="Enter the email you used to submit"></div>
+            <button class="btnp" style="width:100%;justify-content:center" onclick="sendVerifyCode()">Send Verification Code <span class="arr">&#8594;</span></button>
+            <div style="text-align:center;margin-top:14px"><button class="btns" style="font-size:12px" onclick="showNewEntryForm()">Submit a New Entry Instead</button></div>
+          </div>
+          <div id="verifyStep2" style="display:none">
+            <div style="text-align:center;margin-bottom:16px">
+              <div style="font-size:36px;margin-bottom:8px">&#128231;</div>
+              <div style="font-size:14px;color:var(--txt);font-weight:600">Code sent to <span id="verifyEmailDisplay"></span></div>
+              <div style="font-size:12px;color:var(--txl)">Check your inbox (and spam folder)</div>
+            </div>
+            <div class="fgrp"><label class="flbl">6-Digit Code</label><input type="text" class="finp" id="verifyCode" placeholder="Enter code" maxlength="6" style="text-align:center;font-size:24px;font-family:monospace;letter-spacing:8px" onkeydown="if(event.key==='Enter')checkVerifyCode()"></div>
+            <button class="btnp" style="width:100%;justify-content:center" onclick="checkVerifyCode()">Verify &amp; Edit Entry <span class="arr">&#8594;</span></button>
+            <div style="text-align:center;margin-top:12px">
+              <button class="btns" style="font-size:12px" onclick="sendVerifyCode()">Resend Code</button>
+              <span style="font-size:12px;color:var(--txl);margin-left:8px" id="verifyTimer"></span>
+            </div>
+          </div>
+          <div id="verifyError" style="margin-top:12px"></div>
+        </div>
+      </div>
+    </div>
     <div id="confView" style="display:none">
       <div class="card">
         <div class="conf">
@@ -291,14 +321,11 @@ input,textarea,select{font-family:'Inter',sans-serif}
           <p>Good luck, <strong id="confEmail"></strong>!</p>
           <div class="esumm"><div class="estit">Your Lineup</div><div id="confLineup"></div></div>
           <div style="background:rgba(10,61,34,.06);border:1px solid rgba(10,61,34,.15);border-radius:12px;padding:14px;margin-bottom:20px;text-align:left">
-            <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1.5px;color:var(--bg);margin-bottom:8px">&#128279; Your Edit Link — Save This!</div>
-            <div style="font-size:12px;color:var(--txl);margin-bottom:8px">Bookmark this link to edit your picks before the deadline. It works on any device.</div>
-            <a id="confEditLink" href="#" style="font-size:11px;font-family:monospace;color:var(--bg2);word-break:break-all;display:block;background:white;padding:8px 10px;border-radius:8px;border:1px solid var(--card3)">#</a>
-            <button onclick="copyEditLink()" style="margin-top:8px;background:var(--bg);color:var(--card);border:none;padding:6px 16px;border-radius:100px;font-size:12px;font-weight:600;cursor:pointer">Copy Link</button>
+            <div style="font-size:12px;color:var(--txl)">To edit your picks before the deadline, go to <strong>Submit Entry</strong> and click <strong>Edit My Entry</strong>. You'll verify with your email.</div>
           </div>
           <div class="cflex">
             <button class="btnp" onclick="goSec('home',document.querySelectorAll('.nbtn')[0])">View Leaderboard <span class="arr">&#8594;</span></button>
-            <button class="btns" onclick="editEntry()">Edit My Picks</button>
+            <button class="btns" onclick="startEditLookup()">Edit My Picks</button>
           </div>
         </div>
       </div>
@@ -909,6 +936,9 @@ function renderForm(editingId){
   document.getElementById('frmTitle').textContent=(isEdit?'Edit Your Entry \u2014 ':'Submit Entry \u2014 ')+t.name;
   document.getElementById('frmSub').textContent=dp?'Entry deadline has passed.':'Deadline: '+(t.deadline?new Date(t.deadline).toLocaleString('en-US',{month:'long',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+' \u00b7 $'+t.buyin+' buy-in';
   if(dp&&!isEdit){fb.innerHTML='<div class="empty"><div class="ei">&#128274;</div><strong>Entries Locked</strong><p>The entry deadline has passed.</p></div>';return;}
+  // Show "Already submitted? Edit your entry" link at the top
+  var editBtnHtml='';
+  if(!isEdit&&!dp){editBtnHtml='<div style="background:rgba(10,61,34,.05);border:1px solid rgba(10,61,34,.12);border-radius:12px;padding:14px;margin-bottom:20px;text-align:center"><span style="font-size:13px;color:var(--txm)">Already submitted?</span> <button class="btns" style="font-size:12px;padding:6px 16px;margin-left:8px" onclick="startEditLookup()">Edit My Entry</button></div>';}
   FS.picks={1:null,2:[],3:[],4:[],5:null};FS.used=new Set();
   if(editingId)FS.editingId=editingId;
   if(existingEntry){
@@ -922,10 +952,10 @@ function renderForm(editingId){
     if(pk.T4b){FS.picks[4].push(pk.T4b);FS.used.add(pk.T4b);}
     if(pk.T5){FS.picks[5]=pk.T5;FS.used.add(pk.T5);}
   }
-  var h='<div class="frow"><div class="fgrp"><label class="flbl">Full Name *</label><input type="text" class="finp" id="entName" placeholder="John Smith" value="'+(existingEntry?existingEntry.name.replace(/"/g,'&quot;'):'')+'"></div><div class="fgrp"><label class="flbl">Email Address *</label><input type="email" class="finp" id="entEmail" placeholder="john@example.com" value="'+(existingEntry?existingEntry.email.replace(/"/g,'&quot;'):'')+'"></div></div><div style="font-size:13px;color:var(--txl);margin-bottom:22px;line-height:1.6">Pick <strong>1</strong> from T1 &nbsp;\u00b7&nbsp; <strong>2</strong> each from T2, T3, T4 &nbsp;\u00b7&nbsp; <strong>1</strong> from T5 &nbsp;\u00b7&nbsp; No duplicate players'+(t.announcement?'<br><span style="color:var(--bg);font-style:italic">'+t.announcement+'</span>':'')+(isEdit?'<br><strong style="color:var(--bg)">Editing existing entry \u2014 your previous picks are highlighted.</strong>':'')+'</div>';
+  var h=editBtnHtml+'<div class="frow"><div class="fgrp"><label class="flbl">Full Name *</label><input type="text" class="finp" id="entName" placeholder="John Smith" value="'+(existingEntry?existingEntry.name.replace(/"/g,'&quot;'):'')+'"></div><div class="fgrp"><label class="flbl">Email Address *</label><input type="email" class="finp" id="entEmail" placeholder="john@example.com" value="'+(existingEntry?existingEntry.email.replace(/"/g,'&quot;'):'')+'"></div></div><div style="font-size:13px;color:var(--txl);margin-bottom:22px;line-height:1.6">Pick <strong>1</strong> from T1 &nbsp;\u00b7&nbsp; <strong>2</strong> each from T2, T3, T4 &nbsp;\u00b7&nbsp; <strong>1</strong> from T5 &nbsp;\u00b7&nbsp; No duplicate players'+(t.announcement?'<br><span style="color:var(--bg);font-style:italic">'+t.announcement+'</span>':'')+(isEdit?'<br><strong style="color:var(--bg)">Editing existing entry \u2014 your previous picks are highlighted.</strong>':'')+'</div>';
   Object.entries(t.tiers).forEach(function(e){var tn=e[0],td=e[1];h+='<div class="tsec"><div class="thead2"><span class="tlbl">'+td.label+'</span>'+(td.odds?'<span class="todds">'+td.odds+'</span>':'')+'<span class="tinst">'+td.inst+'</span></div><div class="tgrid">'+(td.golfers||[]).map(function(g){var isSel=FS.used.has(g.name);var oddsHtml=g.odds?'<div class="godds">'+g.odds+'</div>':'';return'<div class="gcrd'+(isSel?' sel':'')+'" data-tier="'+tn+'" data-name="'+g.name.replace(/"/g,'&quot;')+'" onclick="togPick('+tn+',\''+g.name.replace(/'/g,"\\'")+'\''+',this)"><div class="gname">'+g.name+'</div>'+oddsHtml+'</div>';}).join('')+'</div></div>';});
   var tb1val=existingEntry?existingEntry.tb1:'',tb2val=existingEntry?existingEntry.tb2:'';
-  h+='<div class="tbsec"><h4>&#127919; Tiebreaker #1 \u2014 Winning Score</h4><p>Guess the winning total to par.</p><input type="number" class="finp" id="tb1" placeholder="e.g. -18" value="'+tb1val+'" style="width:180px"></div><div class="tbsec"><h4>&#9986;&#65039; Tiebreaker #2 \u2014 Cut Line</h4><p>Guess the score where the cut will fall.</p><input type="number" class="finp" id="tb2" placeholder="e.g. +2" value="'+tb2val+'" style="width:180px"></div><div style="text-align:center;padding-top:8px"><button class="btnp" style="font-size:15px;padding:14px 44px" onclick="submitEntry()">'+(isEdit?'Save Changes':'Submit Entry')+' <span class="arr">&#8594;</span></button>'+(isEdit?'<div style="margin-top:10px"><button class="btns" onclick="FS.editingId=null;FS.editingToken=null;renderForm()">Cancel &amp; Start New Entry</button></div>':'<div style="font-size:12px;color:var(--txl);margin-top:12px">&#128279; You\'ll get a link to edit your picks</div>')+'</div>';
+  h+='<div class="tbsec"><h4>&#127919; Tiebreaker #1 \u2014 Winning Score</h4><p>Guess the winning total to par.</p><input type="number" class="finp" id="tb1" placeholder="e.g. -18" value="'+tb1val+'" style="width:180px"></div><div class="tbsec"><h4>&#9986;&#65039; Tiebreaker #2 \u2014 Cut Line</h4><p>Guess the score where the cut will fall.</p><input type="number" class="finp" id="tb2" placeholder="e.g. +2" value="'+tb2val+'" style="width:180px"></div><div style="text-align:center;padding-top:8px"><button class="btnp" style="font-size:15px;padding:14px 44px" onclick="submitEntry()">'+(isEdit?'Save Changes':'Submit Entry')+' <span class="arr">&#8594;</span></button>'+(isEdit?'<div style="margin-top:10px"><button class="btns" onclick="FS.editingId=null;FS.editingToken=null;renderForm()">Cancel &amp; Start New Entry</button></div>':'')+'</div>';
   fb.innerHTML=h;
   setTimeout(refDis,0);
 }
@@ -968,15 +998,11 @@ function submitEntry(){
       existing2.picks=picks;
       existing2.tb1=tb1;existing2.tb2=tb2;
       saveDB(db);
-      // Sync to Worker
       syncEntryToWorker(existing2);
       document.getElementById('confEmail').textContent=em;
-      var editUrl2=window.location.origin+window.location.pathname+'?edit='+existing2.editToken;
-      document.getElementById('confEditLink').href=editUrl2;
-      document.getElementById('confEditLink').textContent=editUrl2;
       var list2=[{t:'T1',n:p[1]},{t:'T2',n:p[2][0]},{t:'T2',n:p[2][1]},{t:'T3',n:p[3][0]},{t:'T3',n:p[3][1]},{t:'T4',n:p[4][0]},{t:'T4',n:p[4][1]},{t:'T5',n:p[5]}];
       document.getElementById('confLineup').innerHTML=list2.map(function(x){return'<div class="eprow"><span class="etier">'+x.t+'</span><span class="ename">'+x.n+'</span></div>';}).join('');
-      document.getElementById('frmView').style.display='none';document.getElementById('confView').style.display='block';
+      document.getElementById('frmView').style.display='none';document.getElementById('editLookupView').style.display='none';document.getElementById('confView').style.display='block';
       refreshSite();toast('Entry updated!');return;
     }
   }
@@ -984,16 +1010,11 @@ function submitEntry(){
     editToken:'tok_'+Math.random().toString(36).slice(2)+Math.random().toString(36).slice(2),
     picks:picks,tb1:tb1,tb2:tb2,score:0,r:['','','','']};
   t.entries.push(entry);saveDB(db);
-  // Sync to Worker
   syncEntryToWorker(entry);
   document.getElementById('confEmail').textContent=em;
-  var editUrl=window.location.origin+window.location.pathname+'?edit='+entry.editToken;
-  document.getElementById('confEditLink').href=editUrl;
-  document.getElementById('confEditLink').textContent=editUrl;
-  try{sessionStorage.setItem('lastEntryToken',entry.editToken);}catch(e){}
   var list=[{t:'T1',n:p[1]},{t:'T2',n:p[2][0]},{t:'T2',n:p[2][1]},{t:'T3',n:p[3][0]},{t:'T3',n:p[3][1]},{t:'T4',n:p[4][0]},{t:'T4',n:p[4][1]},{t:'T5',n:p[5]}];
   document.getElementById('confLineup').innerHTML=list.map(function(x){return'<div class="eprow"><span class="etier">'+x.t+'</span><span class="ename">'+x.n+'</span></div>';}).join('');
-  document.getElementById('frmView').style.display='none';document.getElementById('confView').style.display='block';
+  document.getElementById('frmView').style.display='none';document.getElementById('editLookupView').style.display='none';document.getElementById('confView').style.display='block';
   refreshSite();toast('Entry submitted! Welcome, '+nm+'!');
 }
 
@@ -1009,26 +1030,104 @@ function syncEntryToWorker(entry) {
     console.warn('Failed to sync entry to Worker:', err.message);
   });
 }
-function editEntry(){
-  var token=null;
-  try{token=sessionStorage.getItem('lastEntryToken');}catch(e){}
-  if(token){
-    var t=getActive();
-    if(t){
-      var existing=t.entries.find(function(e){return e.editToken===token;});
-      if(existing){FS.editingId=existing.id;FS.editingToken=token;}
-    }
-  }
-  document.getElementById('frmView').style.display='block';
+// ── Email Verification for Entry Editing ──
+var EMAILJS_SERVICE = 'service_zl4949k';
+var EMAILJS_TEMPLATE = 'template_o1a1v9e';
+var EMAILJS_KEY = '1NhXqn1rpZz0iFZKQ';
+var pendingVerification = { email: '', code: '', expires: 0 };
+
+function startEditLookup() {
+  document.getElementById('frmView').style.display='none';
   document.getElementById('confView').style.display='none';
-  renderForm(FS.editingId);
+  document.getElementById('editLookupView').style.display='block';
+  document.getElementById('verifyStep1').style.display='block';
+  document.getElementById('verifyStep2').style.display='none';
+  document.getElementById('verifyError').innerHTML='';
+  var emailEl=document.getElementById('verifyEmail');
+  if(emailEl)emailEl.value='';
 }
-function copyEditLink(){
-  var link=document.getElementById('confEditLink');
-  if(!link)return;
-  try{navigator.clipboard.writeText(link.href);toast('Edit link copied to clipboard!');}
-  catch(e){var inp=document.createElement('input');inp.value=link.href;document.body.appendChild(inp);inp.select();document.execCommand('copy');document.body.removeChild(inp);toast('Edit link copied!');}
+
+function showNewEntryForm() {
+  FS.editingId=null;FS.editingToken=null;
+  document.getElementById('editLookupView').style.display='none';
+  document.getElementById('frmView').style.display='block';
+  renderForm();
 }
+
+async function sendVerifyCode() {
+  var emailEl=document.getElementById('verifyEmail');
+  var email=emailEl?emailEl.value.trim():'';
+  var errEl=document.getElementById('verifyError');
+  if(!email||!/\S+@\S+\.\S+/.test(email)){
+    errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c Enter a valid email address</div>';
+    return;
+  }
+  // Check if this email has an entry
+  var t=getActive();
+  if(!t){errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c No active tournament</div>';return;}
+  var entry=t.entries.find(function(e){return e.email.toLowerCase()===email.toLowerCase();});
+  if(!entry){
+    errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c No entry found for this email. Did you use a different email address?</div>';
+    return;
+  }
+  // Check deadline
+  if(dlPassed(t)){
+    errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c The entry deadline has passed \u2014 picks are locked.</div>';
+    return;
+  }
+  // Generate 6-digit code
+  var code=String(Math.floor(100000+Math.random()*900000));
+  pendingVerification={email:email.toLowerCase(),code:code,expires:Date.now()+10*60*1000};
+  // Send via EmailJS
+  try {
+    errEl.innerHTML='<div class="snote">\u231b Sending code&hellip;</div>';
+    await emailjs.send(EMAILJS_SERVICE,EMAILJS_TEMPLATE,{
+      to_email:email,
+      code:code
+    },EMAILJS_KEY);
+    errEl.innerHTML='';
+    document.getElementById('verifyStep1').style.display='none';
+    document.getElementById('verifyStep2').style.display='block';
+    document.getElementById('verifyEmailDisplay').textContent=email;
+    document.getElementById('verifyCode').value='';
+    document.getElementById('verifyCode').focus();
+    toast('Verification code sent!','\u2705');
+  } catch(err) {
+    errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c Failed to send email: '+(err.text||err.message||'Unknown error')+'</div>';
+  }
+}
+
+function checkVerifyCode() {
+  var codeEl=document.getElementById('verifyCode');
+  var code=codeEl?codeEl.value.trim():'';
+  var errEl=document.getElementById('verifyError');
+  if(!code||code.length!==6){
+    errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c Enter the 6-digit code</div>';
+    return;
+  }
+  if(Date.now()>pendingVerification.expires){
+    errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c Code expired. Click Resend Code to get a new one.</div>';
+    return;
+  }
+  if(code!==pendingVerification.code){
+    errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c Incorrect code. Try again.</div>';
+    return;
+  }
+  // Code matches — load entry for editing
+  var t=getActive();
+  if(!t)return;
+  var entry=t.entries.find(function(e){return e.email.toLowerCase()===pendingVerification.email;});
+  if(!entry){errEl.innerHTML='<div class="snote" style="color:var(--red)">\u274c Entry not found.</div>';return;}
+  // Clear verification state
+  pendingVerification={email:'',code:'',expires:0};
+  // Load entry for editing
+  FS.editingId=entry.id;
+  document.getElementById('editLookupView').style.display='none';
+  document.getElementById('frmView').style.display='block';
+  renderForm(entry.id);
+  toast('Verified! Editing your entry.','\u2705');
+}
+
 function checkEditToken(){
   var params=new URLSearchParams(window.location.search);
   var token=params.get('edit');
@@ -1036,11 +1135,9 @@ function checkEditToken(){
   var t=getActive();
   if(!t)return;
   var entry=t.entries.find(function(e){return e.editToken===token;});
-  if(!entry){toast('Edit link not found or entry was deleted','&#9888;&#65039;');return;}
-  if(dlPassed(t)){toast('The entry deadline has passed \u2014 picks are locked','&#128274;');return;}
-  FS.editingId=entry.id;FS.editingToken=token;
-  try{sessionStorage.setItem('lastEntryToken',token);}catch(e){}
-  toast('Loading your entry to edit\u2026');
+  if(!entry){return;}
+  if(dlPassed(t)){return;}
+  FS.editingId=entry.id;
   goSec('enter',document.querySelectorAll('.nbtn')[1]);
 }
 
