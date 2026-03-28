@@ -237,7 +237,8 @@ input,textarea,select{font-family:'Inter',sans-serif}
   </nav>
 </div>
 
-<div class="page-hero">
+<div class="page-hero" id="pageHero">
+  <div id="heroBanner" style="display:none;width:100%;max-height:280px;overflow:hidden;border-radius:16px;margin-bottom:18px"></div>
   <div id="heroPill"></div>
   <h1 id="heroName">Golf Betting Pool</h1>
   <div class="sub" id="heroSub">Set up a tournament in Admin to get started</div>
@@ -778,11 +779,15 @@ function goSecEdit(btn){
 function renderHero(){
   var t=getActive();
   var pill=document.getElementById('heroPill');
+  var bannerEl=document.getElementById('heroBanner');
+  var heroEl=document.getElementById('pageHero');
   if(!t){
     pill.innerHTML='<div class="draft-ey">No Active Tournament</div>';
     document.getElementById('heroName').textContent='Golf Betting Pool';
     document.getElementById('heroSub').textContent='Set up a tournament in Admin to get started';
     ['statE','statP','statD'].forEach(function(id){document.getElementById(id).textContent='\u2014';});
+    if(bannerEl){bannerEl.style.display='none';bannerEl.innerHTML='';}
+    document.body.style.backgroundImage='';
     return;
   }
   var dp=dlPassed(t);
@@ -790,11 +795,10 @@ function renderHero(){
   document.getElementById('heroName').textContent=t.name;
   document.getElementById('heroSub').textContent=(t.venue||'')+(t.startDate?' \u00b7 '+fmtD(t.startDate)+' \u2013 '+fmtD(t.endDate):'');
   document.getElementById('statE').textContent=t.entries.length;
-  // FIX: Pot with decimals
   var potVal=(t.entries.length>1)?((t.entries.length-1)*t.buyin):0;
   document.getElementById('statP').textContent=fmtMoney(potVal);
 
-  // FIX: Show actual deadline date instead of "Closed"
+  // Deadline display
   if(t.deadline){
     var dd=new Date(t.deadline);
     var deadlineStr=dd.toLocaleString('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'});
@@ -803,6 +807,40 @@ function renderHero(){
     if(dlbl)dlbl.textContent=dp?'Deadline (Closed)':'Entry Deadline';
   } else {
     document.getElementById('statD').textContent='Open';
+  }
+
+  // Hero banner image
+  if(bannerEl){
+    if(t.heroImage){
+      bannerEl.style.display='block';
+      bannerEl.innerHTML='<img src="'+t.heroImage+'" style="width:100%;height:auto;max-height:280px;object-fit:cover;border-radius:16px;display:block" onerror="this.parentElement.style.display=\'none\'" alt="'+t.name+'">';
+    } else {
+      bannerEl.style.display='none';
+      bannerEl.innerHTML='';
+    }
+  }
+
+  // Background image
+  if(t.bgImage){
+    document.body.style.backgroundImage='url('+t.bgImage+')';
+    document.body.style.backgroundSize='cover';
+    document.body.style.backgroundPosition='center';
+    document.body.style.backgroundAttachment='fixed';
+    document.body.style.backgroundRepeat='no-repeat';
+    // Add an overlay so text stays readable
+    heroEl.style.position='relative';
+    var overlay=document.getElementById('bgOverlay');
+    if(!overlay){
+      overlay=document.createElement('div');
+      overlay.id='bgOverlay';
+      overlay.style.cssText='position:fixed;inset:0;background:rgba(10,61,34,0.85);z-index:-1;pointer-events:none';
+      document.body.appendChild(overlay);
+    }
+    overlay.style.display='block';
+  } else {
+    document.body.style.backgroundImage='';
+    var overlay=document.getElementById('bgOverlay');
+    if(overlay)overlay.style.display='none';
   }
 }
 
@@ -1487,6 +1525,11 @@ function openEditTourn(id){
     +'<div class="frow"><div class="fgrp"><label class="flbl">Buy-in ($)</label><input type="number" class="finp" id="etBuyin"></div><div class="fgrp"><label class="flbl">Entry Deadline</label><input type="datetime-local" class="finp" id="etDeadline"></div></div>'
     +'<div class="fgrp"><label class="flbl">Current Round</label><select class="finp" id="etRound"><option value="">Not started</option><option value="R1">Round 1</option><option value="R2">Round 2</option><option value="R3">Round 3</option><option value="R4">Round 4 / Final</option></select></div>'
     +'<hr class="divider">'
+    +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#127748; Tournament Images</div>'
+    +'<div class="fgrp"><label class="flbl">Hero Banner Image URL</label><input type="text" class="finp" id="etHeroImg" placeholder="https://example.com/course-photo.jpg"><div style="font-size:11px;color:var(--txl);margin-top:5px">Shows as a banner at the top. Use a wide landscape photo — course, trophy, past champion, etc. Right-click any image online &rarr; Copy Image Address.</div></div>'
+    +'<div class="fgrp"><label class="flbl">Background Image URL <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--txl)">(optional)</span></label><input type="text" class="finp" id="etBgImg" placeholder="https://example.com/background.jpg"><div style="font-size:11px;color:var(--txl);margin-top:5px">Subtle background behind the content area. Works best with a dark, low-contrast image.</div></div>'
+    +'<div id="imgPreview" style="margin-bottom:14px"></div>'
+    +'<hr class="divider">'
     +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#127919; Auto-Generate Tiers from Odds</div>'
     +'<div class="fgrp"><label class="flbl">Paste DraftKings Outright Winner Odds</label><textarea class="finp" rows="6" style="resize:vertical;font-family:monospace;font-size:12px" id="etOddsPaste" placeholder="Paste from DraftKings here...\n\nExample:\nScottie Scheffler +500\nRory McIlroy +800\nXander Schauffele +1200"></textarea><div style="font-size:11px;color:var(--txl);margin-top:5px">Go to DraftKings &rarr; Golf &rarr; Outright Winner. Select all the names/odds and paste here. Tiers are auto-generated based on odds.</div></div>'
     +'<button class="btns" style="margin-bottom:14px" onclick="generateTiersFromOdds()">&#9881; Generate Tiers from Odds</button>'
@@ -1501,11 +1544,14 @@ function openEditTourn(id){
     +'</div></div>';
   document.body.appendChild(m);
   document.getElementById('etId').value=t.id;document.getElementById('etName').value=t.name||'';document.getElementById('etVenue').value=t.venue||'';document.getElementById('etStart').value=t.startDate||'';document.getElementById('etEnd').value=t.endDate||'';document.getElementById('etBuyin').value=t.buyin||50;document.getElementById('etDeadline').value=t.deadline||'';document.getElementById('etEspnId').value=t.espnTournamentId||'';document.getElementById('etRound').value=t.round||'';document.getElementById('etInterval').value=(t.liveConfig&&t.liveConfig.interval!==undefined)?t.liveConfig.interval:5;
+  document.getElementById('etHeroImg').value=t.heroImage||'';document.getElementById('etBgImg').value=t.bgImage||'';
   m.style.display='flex';
 }
 async function saveEditTourn(){
   var id=document.getElementById('etId').value;var db=getDB();var t=db.tournaments.find(function(x){return x.id===id;});if(!t)return;
   t.name=document.getElementById('etName').value.trim()||t.name;t.venue=document.getElementById('etVenue').value.trim();t.startDate=document.getElementById('etStart').value;t.endDate=document.getElementById('etEnd').value;t.buyin=parseInt(document.getElementById('etBuyin').value)||50;t.deadline=document.getElementById('etDeadline').value;t.round=document.getElementById('etRound').value;
+  t.heroImage=document.getElementById('etHeroImg').value.trim();
+  t.bgImage=document.getElementById('etBgImg').value.trim();
   var newEspnId=document.getElementById('etEspnId').value.trim();
   var oldEspnId=t.espnTournamentId||'';
   t.espnTournamentId=newEspnId;
