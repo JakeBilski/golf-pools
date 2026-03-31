@@ -1421,6 +1421,16 @@ async function fetchLiveScores() {
 async function triggerRefresh(silent) {
   var t = getActive();
   if (!t) { if(!silent) toast('No active tournament', '\u26a0\ufe0f'); return; }
+  // Don't fetch scores if no ESPN tournament ID is set
+  if (!t.espnTournamentId) {
+    // Clear any stale golfer data from a previous tournament
+    if (t.golfers && t.golfers.length > 0) {
+      var db = getDB();
+      var ac = db.tournaments.find(function(x){ return x.status === 'active'; });
+      if (ac) { ac.golfers = []; saveDB(db); refreshSite(); }
+    }
+    return;
+  }
   document.getElementById('liveStatus').textContent = 'Updating\u2026';
   var data = await fetchLiveScores();
   if (data && data.golfers && data.golfers.length > 0) {
@@ -1646,7 +1656,7 @@ async function saveEditTourn(){
   }
   
 }
-function activateT(id){var db=getDB();db.tournaments.forEach(function(t){if(t.status==='active')t.status='draft';});var t=db.tournaments.find(function(t){return t.id===id;});if(t)t.status='active';saveDB(db);renderTList();refreshSite();startAutoRf();
+function activateT(id){var db=getDB();db.tournaments.forEach(function(t){if(t.status==='active')t.status='draft';});var t=db.tournaments.find(function(t){return t.id===id;});if(t){t.status='active';if(!t.espnTournamentId)t.golfers=[];}saveDB(db);renderTList();refreshSite();startAutoRf();
   if(t&&t.espnTournamentId){fetch(WORKER_URL+'/tournament/'+t.espnTournamentId).catch(function(){});}
   toast('"'+t.name+'" is now active!');
 }
