@@ -393,6 +393,17 @@ input,textarea,select{font-family:'Inter',sans-serif}
       <div class="snote" id="publishNote" style="background:rgba(212,160,23,.08);border-color:rgba(212,160,23,.25);margin-bottom:20px">
         <strong style="color:#7a5c10">&#9888;&#65039; Remember to Publish!</strong> Changes you make here are local to this browser. Hit <strong>Publish to All Devices</strong> after making changes so everyone sees them.
       </div>
+      <div id="liveScoringBar" style="background:var(--white);border:2px solid var(--card2);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--txt)">&#9889; Live Scoring</div>
+          <div style="font-size:12px;color:var(--txl)" id="liveScoreStatusText">Checking status...</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button class="btnp" style="font-size:13px;padding:10px 20px;background:#1a6e3a" id="btnScoringOn" onclick="toggleWorkerQuick('on')">&#9989; ON</button>
+          <button class="btns" style="font-size:13px;padding:10px 20px" id="btnScoringOff" onclick="toggleWorkerQuick('off')">&#9940; OFF</button>
+          <span id="liveScoreDot" style="width:12px;height:12px;border-radius:50%;display:inline-block"></span>
+        </div>
+      </div>
       <div class="agrid">
         <div class="acrd" onclick="openPanel('tourn')"><div class="atop"></div><div class="abody"><div class="aico">&#127942;</div><div class="atit">Tournaments</div><div class="adsc">Create, activate, and archive tournaments</div></div></div>
         <div class="acrd" onclick="openPanel('tiers')"><div class="atop"></div><div class="abody"><div class="aico">&#127919;</div><div class="atit">Manage Tiers</div><div class="adsc">Build golfer tiers based on betting odds</div></div></div>
@@ -658,23 +669,29 @@ function defDB() {
 async function pushToWorker() {
   var db = getDB();
   var t = db.tournaments.find(function(x){ return x.status === 'active'; });
-  if (!t) return;
-  var payload = {
-    tournament: {
-      id: t.id, name: t.name, venue: t.venue,
-      startDate: t.startDate, endDate: t.endDate,
-      buyin: t.buyin, deadline: t.deadline,
-      status: t.status, round: t.round,
-      announcement: t.announcement,
-      payouts: t.payouts || [60, 25, 15],
-      espnTournamentId: t.espnTournamentId || '',
-      entries: t.entries, tiers: t.tiers,
-      golfers: t.golfers, liveConfig: t.liveConfig || {}
-    },
-    theme: db.theme || null,
-    fonts: db.fonts || null,
-    publishedAt: new Date().toISOString()
-  };
+  var payload;
+  if (!t) {
+    // No active tournament — clear the Worker
+    payload = { tournament: null, theme: db.theme || null, fonts: db.fonts || null, publishedAt: new Date().toISOString() };
+  } else {
+    payload = {
+      tournament: {
+        id: t.id, name: t.name, venue: t.venue,
+        startDate: t.startDate, endDate: t.endDate,
+        buyin: t.buyin, deadline: t.deadline,
+        status: t.status, round: t.round,
+        announcement: t.announcement,
+        payouts: t.payouts || [60, 25, 15],
+        espnTournamentId: t.espnTournamentId || '',
+        entries: t.entries, tiers: t.tiers,
+        golfers: t.golfers, liveConfig: t.liveConfig || {},
+        bgImage: t.bgImage || '', logoImage: t.logoImage || ''
+      },
+      theme: db.theme || null,
+      fonts: db.fonts || null,
+      publishedAt: new Date().toISOString()
+    };
+  }
   try {
     await fetch(WORKER_URL + '/config', {
       method: 'POST',
@@ -692,20 +709,28 @@ async function pullFromWorker() {
     var res = await fetch(WORKER_URL + '/config?t=' + Date.now());
     if (!res.ok) return false;
     var data = await res.json();
-    if (!data || !data.tournament || data.error) return false;
+    if (!data || data.error) return false;
 
     var db = getDB();
-    var t = data.tournament;
 
-    // Replace all non-archived tournaments with the published one
+    // Keep archived tournaments for history
     var archived = db.tournaments.filter(function(x){ return x.status === 'archived'; });
-    db.tournaments = archived;
-    t.status = 'active';
-    db.tournaments.unshift(t);
+    var drafts = db.tournaments.filter(function(x){ return x.status === 'draft'; });
+    db.tournaments = archived.concat(drafts);
+
+    // Add the published tournament if there is one
+    if (data.tournament) {
+      var t = data.tournament;
+      t.status = 'active';
+      // Remove any draft with the same ID (it was activated remotely)
+      db.tournaments = db.tournaments.filter(function(x){ return x.id !== t.id; });
+      db.tournaments.unshift(t);
+    }
 
     if (data.theme) db.theme = data.theme;
     if (data.fonts) db.fonts = data.fonts;
-    saveDB(db);
+    // Save directly to localStorage — don't trigger pushToWorker
+    try { localStorage.setItem(SK, JSON.stringify(db)); } catch(e) {}
     return true;
   } catch(err) {
     console.warn('Pull from Worker failed:', err.message);
@@ -1464,8 +1489,44 @@ async function toggleWorker(state) {
     var data = await res.json();
     if (resultEl) resultEl.innerHTML = '<div class="snote" style="color:' + (state==='on'?'#1a6e3a':'var(--red)') + '"><strong>' + (state==='on'?'\u2705 Scoring is ON':'&#9940; Scoring is OFF') + '</strong> — ' + (data.message || JSON.stringify(data)) + '</div>';
     toast('Scoring toggled ' + state + '!');
+    refreshScoringStatus();
   } catch(err) {
     if (resultEl) resultEl.innerHTML = '<div class="snote" style="color:var(--red)">&#10005; Could not reach Worker: ' + err.message + '</div>';
+  }
+}
+
+async function toggleWorkerQuick(state) {
+  try {
+    await fetch(WORKER_URL + '/toggle/' + state);
+    toast(state==='on'?'Live scoring is ON — auto-refreshing every 5 min':'Live scoring is OFF — no more auto-refreshes', state==='on'?'\u2705':'\u26d4');
+    refreshScoringStatus();
+  } catch(err) {
+    toast('Could not reach Worker: ' + err.message, '\u274c');
+  }
+}
+
+async function refreshScoringStatus() {
+  var statusText = document.getElementById('liveScoreStatusText');
+  var dot = document.getElementById('liveScoreDot');
+  var btnOn = document.getElementById('btnScoringOn');
+  var btnOff = document.getElementById('btnScoringOff');
+  try {
+    var res = await fetch(WORKER_URL + '/status');
+    var data = await res.json();
+    var isOn = data.enabled;
+    if (statusText) {
+      var lastUp = data.lastUpdated ? new Date(data.lastUpdated).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit'}) : 'never';
+      statusText.textContent = (isOn ? 'Active' : 'Stopped') + ' \u00b7 ' + (data.golferCount||0) + ' golfers \u00b7 Last fetch: ' + lastUp;
+    }
+    if (dot) {
+      dot.style.background = isOn ? '#1aee5a' : '#cc3333';
+      dot.style.boxShadow = isOn ? '0 0 8px rgba(26,238,90,.5)' : 'none';
+    }
+    if (btnOn) btnOn.style.opacity = isOn ? '1' : '0.5';
+    if (btnOff) btnOff.style.opacity = isOn ? '0.5' : '1';
+  } catch(err) {
+    if (statusText) statusText.textContent = 'Could not reach Worker';
+    if (dot) { dot.style.background = '#999'; }
   }
 }
 
@@ -1498,6 +1559,7 @@ function checkAdmin(){
     document.getElementById('adminAuth').style.display='none';
     document.getElementById('adminDash').style.display='block';
     renderTList();renderAEntries();renderTBuilder();renderMScoring();
+    refreshScoringStatus();
     toast('Welcome back, Admin!');
   } else { toast('Incorrect password','\u274c'); }
 }
