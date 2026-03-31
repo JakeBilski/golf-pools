@@ -925,6 +925,7 @@ function renderHome(){
     });
   });
   function rosterPct(name){
+    if(!dp)return ''; // hide until deadline passes
     if(!totalEntries)return '';
     var cnt=rosterCount[name]||0;
     if(!cnt)return '';
