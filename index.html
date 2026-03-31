@@ -1717,6 +1717,12 @@ function moveTG(fromTier,idx,toTier){
   var player=from.golfers.splice(idx,1)[0];
   if(!player)return;
   to.golfers.push(player);
+  // Sort the destination tier by odds (lowest/best odds first)
+  to.golfers.sort(function(a,b){
+    var oa=parseInt((a.odds||'999999').replace('+',''))||999999;
+    var ob=parseInt((b.odds||'999999').replace('+',''))||999999;
+    return oa-ob;
+  });
   saveDB(db);renderTBuilder();
   toast(player.name+' moved to Tier '+toTier,'\u2705');
 }
