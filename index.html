@@ -385,7 +385,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;flex-wrap:wrap;gap:10px">
         <div class="stitle" style="margin:0">Admin Dashboard</div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button class="btnp" style="font-size:13px;padding:10px 22px;background:#d4a017" onclick="publishToWorker()">&#128640; Publish to All Devices</button>
+          <button class="btnp" style="font-size:13px;padding:10px 22px;background:#d4a017" onclick="publishToWorker()">&#9971; Publish to All Devices</button>
           <span id="publishStatus" style="font-size:11px;color:var(--txl)"></span>
           <button class="btns" onclick="adminOut()">Sign Out</button>
         </div>
@@ -395,7 +395,7 @@ input,textarea,select{font-family:'Inter',sans-serif}
       </div>
       <div id="liveScoringBar" style="background:var(--white);border:2px solid var(--card2);border-radius:16px;padding:16px 20px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
         <div>
-          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--txt)">&#9889; Live Scoring</div>
+          <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--txt)">&#127948;&#65039; Live Scoring</div>
           <div style="font-size:12px;color:var(--txl)" id="liveScoreStatusText">Checking status...</div>
         </div>
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
@@ -407,10 +407,10 @@ input,textarea,select{font-family:'Inter',sans-serif}
       <div class="agrid">
         <div class="acrd" onclick="openPanel('tourn')"><div class="atop"></div><div class="abody"><div class="aico">&#127942;</div><div class="atit">Tournaments</div><div class="adsc">Create, activate, and archive tournaments</div></div></div>
         <div class="acrd" onclick="openPanel('tiers')"><div class="atop"></div><div class="abody"><div class="aico">&#127919;</div><div class="atit">Manage Tiers</div><div class="adsc">Build golfer tiers based on betting odds</div></div></div>
-        <div class="acrd" onclick="openPanel('entries')"><div class="atop"></div><div class="abody"><div class="aico">&#128221;</div><div class="atit">Manage Entries</div><div class="adsc">View, edit, or override entries</div></div></div>
+        <div class="acrd" onclick="openPanel('entries')"><div class="atop"></div><div class="abody"><div class="aico">&#9971;</div><div class="atit">Manage Entries</div><div class="adsc">View, edit, or override entries</div></div></div>
         <div class="acrd" onclick="openPanel('scoring')"><div class="atop"></div><div class="abody"><div class="aico">&#9971;</div><div class="atit">Manual Scoring</div><div class="adsc">Override golfer scores manually</div></div></div>
-        <div class="acrd" onclick="openPanel('theme')"><div class="atop"></div><div class="abody"><div class="aico">&#127912;</div><div class="atit">Theme &amp; Design</div><div class="adsc">Colors and fonts per tournament</div></div></div>
-        <div class="acrd" onclick="openPanel('announce')"><div class="atop"></div><div class="abody"><div class="aico">&#128226;</div><div class="atit">Announcements</div><div class="adsc">Homepage messages and instructions</div></div></div>
+        <div class="acrd" onclick="openPanel('theme')"><div class="atop"></div><div class="abody"><div class="aico">&#9971;</div><div class="atit">Theme &amp; Design</div><div class="adsc">Colors and fonts per tournament</div></div></div>
+        <div class="acrd" onclick="openPanel('announce')"><div class="atop"></div><div class="abody"><div class="aico">&#127942;</div><div class="atit">Announcements</div><div class="adsc">Homepage messages and instructions</div></div></div>
         <div class="acrd" onclick="openPanel('namemap')"><div class="atop"></div><div class="abody"><div class="aico">&#128259;</div><div class="atit">Fix Player Names</div><div class="adsc">Rename misspelled players across all entries</div></div></div>
       </div>
 
@@ -1365,14 +1365,14 @@ function checkEditToken(){
 }
 
 var RULES=[
-  {ico:'&#128197;',t:'Entry Deadline',d:'Submit your lineup before the first tee time. Late entries are not accepted.'},
+  {ico:'&#9971;',t:'Entry Deadline',d:'Submit your lineup before the first tee time. Late entries are not accepted.'},
   {ico:'&#127919;',t:'Lineup Format',d:'Pick 1 from Tier 1, 2 each from Tiers 2/3/4, and 1 from Tier 5. No duplicate players.'},
   {ico:'&#9986;&#65039;',t:'Scoring: Top 5/8',d:'The lowest 5 of your 8 golfer scores count. If no entry has 5 make the cut, lowest 4/8 count.'},
   {ico:'&#128683;',t:'Missed Cut',d:'MC = +20. Adjusted if last place is worse. MC in your top 5 is historically devastating.'},
   {ico:'&#127942;',t:'Winner',d:'Lowest combined score after four rounds wins the pool.'},
-  {ico:'&#9876;&#65039;',t:'No Playoff Strokes',d:'No additional strokes are added for any playoff after the 72nd hole.'},
-  {ico:'&#127922;',t:'Tiebreaker',d:'Tied? Closest to the winning score wins. Still tied? Closest to the cut line decides.'},
-  {ico:'&#128184;',t:'Payout',d:'Pot minus one free entry for the organizer. Percentages set per tournament.'}
+  {ico:'&#127948;&#65039;',t:'No Playoff Strokes',d:'No additional strokes are added for any playoff after the 72nd hole.'},
+  {ico:'&#127942;',t:'Tiebreaker',d:'Tied? Closest to the winning score wins. Still tied? Closest to the cut line decides.'},
+  {ico:'&#129351;',t:'Payout',d:'Pot minus one free entry for the organizer. Percentages set per tournament.'}
 ];
 function renderRules(){document.getElementById('rulesGrid').innerHTML=RULES.map(function(r){return'<div class="rcrd"><div class="rico">'+r.ico+'</div><div class="rcnt"><h4>'+r.t+'</h4><p>'+r.d+'</p></div></div>';}).join('');}
 
@@ -1602,7 +1602,7 @@ function openEditTourn(id){
     +'<div class="frow"><div class="fgrp"><label class="flbl">Buy-in ($)</label><input type="number" class="finp" id="etBuyin"></div><div class="fgrp"><label class="flbl">Entry Deadline</label><input type="datetime-local" class="finp" id="etDeadline"></div></div>'
     +'<div class="fgrp"><label class="flbl">Current Round</label><select class="finp" id="etRound"><option value="">Not started</option><option value="R1">Round 1</option><option value="R2">Round 2</option><option value="R3">Round 3</option><option value="R4">Round 4 / Final</option></select></div>'
     +'<hr class="divider">'
-    +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#127748; Tournament Images</div>'
+    +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#9971; Tournament Images</div>'
     +'<div class="fgrp"><label class="flbl">Tournament Logo URL</label><input type="text" class="finp" id="etLogoImg" placeholder="https://example.com/logo.png"><div style="font-size:11px;color:var(--txl);margin-top:5px">Shows to the left of the tournament name. Square images work best (logos, crests, course emblems).</div></div>'
     +'<div class="fgrp"><label class="flbl">Background Image URL</label><input type="text" class="finp" id="etBgImg" placeholder="https://example.com/course-photo.jpg"><div style="font-size:11px;color:var(--txl);margin-top:5px">Full-page background image. Right-click any image online &rarr; Copy Image Address. Works best with course aerials or scenic shots.</div></div>'
     +'<div id="imgPreview" style="margin-bottom:14px"></div>'
@@ -1612,7 +1612,7 @@ function openEditTourn(id){
     +'<button class="btns" style="margin-bottom:14px" onclick="generateTiersFromOdds()">&#9881; Generate Tiers from Odds</button>'
     +'<div id="oddsPreview" style="margin-bottom:14px"></div>'
     +'<hr class="divider">'
-    +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#128640; Live Scoring</div>'
+    +'<div style="font-family:\'Syne\',sans-serif;font-size:15px;font-weight:800;margin-bottom:12px;color:var(--txt)">&#127948;&#65039; Live Scoring</div>'
     +'<div class="fgrp"><label class="flbl">ESPN Tournament ID <span style="font-weight:400;text-transform:none;letter-spacing:0;color:var(--txl)">(add when available)</span></label><input type="text" class="finp" id="etEspnId" placeholder="e.g. 401811938"><div style="font-size:11px;color:var(--txl);margin-top:5px">Find at espn.com/golf/leaderboard. Leave blank if not available yet.</div></div>'
     +'<div class="fgrp"><label class="flbl">Auto-Refresh Interval</label><select class="finp" id="etInterval"><option value="5">Every 5 minutes</option><option value="10">Every 10 minutes</option><option value="0">Manual only</option></select></div>'
     +(isActive?'<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px"><button class="btns" style="font-size:12px" onclick="toggleWorker(\'on\')">&#9989; Turn Scoring ON</button><button class="btns" style="font-size:12px" onclick="toggleWorker(\'off\')">&#9940; Turn Scoring OFF</button><button class="btns" style="font-size:12px" onclick="checkWorkerStatus()">&#128260; Check Status</button></div><div id="testResult" style="margin-bottom:14px"></div>':'<div style="font-size:12px;color:var(--txl);margin-bottom:14px;font-style:italic">Set this tournament as Active to enable live scoring controls.</div>')
