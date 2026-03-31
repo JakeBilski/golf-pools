@@ -997,7 +997,7 @@ function renderHome(){
   var colspan=10;
 
   if(!t.golfers.length){
-    document.getElementById('golfTbody').innerHTML='<tr><td colspan="'+colspan+'"><div class="empty"><div class="ei">&#127947;</div><p>No scores yet. Check Worker status in Admin &rarr; Live Scoring Config.</p></div></td></tr>';
+    document.getElementById('golfTbody').innerHTML='<tr><td colspan="'+colspan+'"><div class="empty"><div class="ei">&#9971;</div><p>No scores yet. Check Worker status in Admin &rarr; Live Scoring Config.</p></div></td></tr>';
     document.getElementById('golfThead').innerHTML=thead;
   } else {
     document.getElementById('golfThead').innerHTML=thead;
@@ -1050,7 +1050,7 @@ function renderHome(){
   }
   // FIX: decimal payouts in footer
   var payPcts=t.payouts||[60,25,15];
-  document.getElementById('payEl').innerHTML=sorted.length&&dp?'<div class="payrow"><div class="payitem"><div class="payplace">&#127947; 1st</div><div class="paypct">'+payPcts[0]+'%</div><div class="payamt">'+fmtMoney(pays[0])+'</div></div><div class="payitem"><div class="payplace">&#127948; 2nd</div><div class="paypct">'+payPcts[1]+'%</div><div class="payamt">'+fmtMoney(pays[1])+'</div></div><div class="payitem"><div class="payplace">&#127949; 3rd</div><div class="paypct">'+payPcts[2]+'%</div><div class="payamt">'+fmtMoney(pays[2])+'</div></div></div>':'';
+  document.getElementById('payEl').innerHTML=sorted.length&&dp?'<div class="payrow"><div class="payitem"><div class="payplace">&#129351; 1st</div><div class="paypct">'+payPcts[0]+'%</div><div class="payamt">'+fmtMoney(pays[0])+'</div></div><div class="payitem"><div class="payplace">&#129352; 2nd</div><div class="paypct">'+payPcts[1]+'%</div><div class="payamt">'+fmtMoney(pays[1])+'</div></div><div class="payitem"><div class="payplace">&#129353; 3rd</div><div class="paypct">'+payPcts[2]+'%</div><div class="payamt">'+fmtMoney(pays[2])+'</div></div></div>':'';
 }
 
 function openDr(idx){
